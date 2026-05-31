@@ -20,4 +20,6 @@ terraform {
 }
 
 # Credentials fournis par les variables d'environnement OS_* (openrc.sh en local, secrets en CI)
-provider "openstack" {}
+provider "openstack" {
+  region = var.region
+}

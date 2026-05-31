@@ -27,3 +27,8 @@ variable "allowed_tcp_ports" {
   type        = list(number)
   default     = [22, 80, 443, 6443]
 }
+variable "region" {
+  description = "Region OpenStack OVH (nom exact du catalogue)"
+  type        = string
+  default     = "BHS5"
+}
