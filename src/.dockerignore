@@ -1,0 +1,16 @@
+# =============================================================================
+Dockerfile
+
+# Les fichiers .env .
+.env
+.env.*
+
+# Documentation .
+*.md
+*.txt
+
+# Fichiers d'éditeurs
+.vscode/
+.idea/
+*.swp
+*.swo

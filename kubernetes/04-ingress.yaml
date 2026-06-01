@@ -1,0 +1,32 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: redirect-https
+  namespace: pictionary
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pictionary-web-ingress
+  namespace: pictionary
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"   # active HTTPS (cert par defaut Traefik)
+    traefik.ingress.kubernetes.io/router.middlewares: pictionary-redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pictionary-web-service
+                port:
+                  number: 80

@@ -1,0 +1,193 @@
+# ConfigMap : donnees de config NON sensibles. Ici le script init.sql (les mots du jeu).
+# Monte dans /docker-entrypoint-initdb.d/ du pod MariaDB -> execute au 1er demarrage.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pictionary-db-init
+  namespace: pictionary
+data:
+  # init.sql = nom du fichier cree dans le pod. | = bloc texte multi-ligne conserve tel quel.
+  init.sql: |
+    CREATE DATABASE IF NOT EXISTS pictionary
+        CHARACTER SET utf8mb4
+        COLLATE utf8mb4_unicode_ci;
+
+    USE pictionary;
+
+    CREATE TABLE IF NOT EXISTS mots (
+        id  INT          AUTO_INCREMENT PRIMARY KEY,
+        mot VARCHAR(255) NOT NULL,
+        UNIQUE KEY uq_mot (mot)
+    ) ENGINE=InnoDB
+      CHARACTER SET utf8mb4
+      COLLATE utf8mb4_unicode_ci;
+
+    INSERT IGNORE INTO mots (mot) VALUES
+        ('Chat'), ('Chien'), ('Lion'), ('Tigre'), ('Éléphant'),
+        ('Girafe'), ('Singe'), ('Lapin'), ('Cochon'), ('Vache'),
+        ('Cheval'), ('Mouton'), ('Poule'), ('Canard'), ('Poisson'),
+        ('Requin'), ('Dauphin'), ('Pieuvre'), ('Crabe'), ('Grenouille'),
+        ('Serpent'), ('Crocodile'), ('Tortue'), ('Dinosaure'), ('Dragon'),
+        ('Papillon'), ('Abeille'), ('Araignée'), ('Hibou'), ('Pingouin'),
+        ('Flamant'), ('Perroquet'), ('Aigle');
+
+    INSERT IGNORE INTO mots (mot) VALUES
+        ('Pizza'), ('Burger'), ('Frite'), ('Hot Dog'), ('Sushi'),
+        ('Ramen'), ('Taco'), ('Glace'), ('Gâteau'), ('Cookie'),
+        ('Chocolat'), ('Bonbon'), ('Pomme'), ('Banane'), ('Fraise'),
+        ('Raisin'), ('Pastèque'), ('Ananas'), ('Citron'), ('Cerise'),
+        ('Mangue'), ('Carotte'), ('Maïs'), ('Brocoli'), ('Aubergine'),
+        ('Champignon'), ('Fromage'), ('Pain'), ('Café'), ('Thé');
+
+    INSERT IGNORE INTO mots (mot) VALUES
+        ('Voiture'), ('Camion'), ('Bus'), ('Moto'), ('Vélo'),
+        ('Trottinette'), ('Avion'), ('Hélicoptère'), ('Fusée'), ('Bateau'),
+        ('Train'), ('Taxi'), ('Ambulance'), ('Tracteur'), ('Skateboard');
+
+    INSERT IGNORE INTO mots (mot) VALUES
+        ('Soleil'), ('Lune'), ('Étoile'), ('Nuage'), ('Pluie'),
+        ('Neige'), ('Arc-en-ciel'), ('Éclair'), ('Volcan'), ('Montagne'),
+        ('Plage'), ('Désert'), ('Forêt'), ('Fleur'), ('Cactus'),
+        ('Arbre'), ('Feuille'), ('Mer'), ('Feu'), ('Vent');
+
+    INSERT IGNORE INTO mots (mot) VALUES
+        ('Maison'), ('Château'), ('École'), ('Hôpital'), ('Église'),
+        ('Tente'), ('Téléphone'), ('Ordinateur'), ('Télévision'), ('Caméra'),
+        ('Lunettes'), ('Clé'), ('Cadenas'), ('Lampe'), ('Bougie'),
+        ('Livre'), ('Crayon'), ('Marteau'), ('Ballon'), ('Cadeau'),
+        ('Couronne'), ('Diamant'), ('Bague'), ('Chapeau'), ('Parapluie');
+
+    INSERT IGNORE INTO mots (mot) VALUES
+        ('Football'), ('Basket'), ('Tennis'), ('Baseball'), ('Golf'),
+        ('Boxe'), ('Karaté'), ('Ski'), ('Surf'), ('Guitare');
+
+    INSERT IGNORE INTO mots (mot) VALUES
+        ('Robot'), ('Fantôme'), ('Monstre'), ('Zombie'), ('Fée'),
+        ('Sorcière'), ('Vampire'), ('Pirate'), ('Cowboy'), ('Clown'),
+        ('Père Noël'), ('Alien'), ('Licorne'), ('Sirène'), ('Astronaute');
+
+---
+
+# PVC : demande d'espace disque. local-path (provisioner K3s) cree le volume reel automatiquement.
+# Survit au redemarrage du pod, pas a la destruction de la VM (OK : ConfigMap recharge les donnees).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pictionary-db-pvc
+  namespace: pictionary
+spec:
+  accessModes:
+    - ReadWriteOnce          # lecture/ecriture par un seul noeud : standard pour une DB
+  storageClassName: local-path  # provisioner par defaut de K3s
+  resources:
+    requests:
+      storage: 1Gi          # suffisant pour la base de mots
+
+---
+
+# Deployment MariaDB : garantit qu'1 pod tourne en permanence, le recree s'il plante.
+# Structure : Deployment > template (modele de pod) > containers > [mariadb]
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pictionary-db
+  namespace: pictionary
+  labels:
+    app: pictionary-db
+spec:
+  replicas: 1                  # 1 seul pod pour une DB (pas de clustering ici)
+  selector:
+    matchLabels:
+      app: pictionary-db       # le Deployment gere les pods portant ce label
+  template:
+    metadata:
+      labels:
+        app: pictionary-db     # chaque pod cree porte ce label (doit matcher le selector)
+    spec:
+      containers:
+        - name: mariadb
+          image: mariadb:10.11
+          # Credentials injectes depuis le Secret (jamais en clair)
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pictionary-db-secret
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: pictionary-db-secret
+                  key: MYSQL_DATABASE
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: pictionary-db-secret
+                  key: MYSQL_USER
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pictionary-db-secret
+                  key: MYSQL_PASSWORD
+          ports:
+            - containerPort: 3306   # port standard MariaDB
+          # requests = garanti / limits = plafond (RAM depassee = OOMKilled)
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          # readiness : MariaDB ne parle pas HTTP -> on teste avec exec + mysqladmin ping.
+          # Tant que la DB n'accepte pas les connexions, le Service ne l'inclut pas comme cible.
+          readinessProbe:
+            exec:
+              command:
+                - bash
+                - -c
+                - "mysqladmin ping -h localhost -u root -p\"$MYSQL_ROOT_PASSWORD\""
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          # liveness : si MariaDB se bloque durablement -> K8s redemarre le pod
+          livenessProbe:
+            exec:
+              command:
+                - bash
+                - -c
+                - "mysqladmin ping -h localhost -u root -p\"$MYSQL_ROOT_PASSWORD\""
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+          volumeMounts:
+            - name: db-storage
+              mountPath: /var/lib/mysql               # donnees de la base
+            - name: db-init
+              mountPath: /docker-entrypoint-initdb.d  # init.sql au 1er demarrage
+      volumes:
+        - name: db-storage
+          persistentVolumeClaim:
+            claimName: pictionary-db-pvc    # PVC (fichier 02b)
+        - name: db-init
+          configMap:
+            name: pictionary-db-init        # ConfigMap (fichier 02a)
+
+---
+
+# Service MariaDB : adresse reseau STABLE pour joindre le pod (les pods changent d'IP, pas le Service).
+# Le nom du Service = hostname DNS interne -> l'app web utilisera DB_HOST=pictionary-db-service
+apiVersion: v1
+kind: Service
+metadata:
+  name: pictionary-db-service
+  namespace: pictionary
+spec:
+  selector:
+    app: pictionary-db    # cible les pods MariaDB portant ce label
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306    # port du conteneur MariaDB
+  # ClusterIP = accessible UNIQUEMENT dans le cluster (une DB ne s'expose pas dehors)
+  type: ClusterIP

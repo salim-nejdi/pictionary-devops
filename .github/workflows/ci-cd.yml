@@ -1,0 +1,236 @@
+name: CI/CD Pictionary
+
+on:
+  push:
+    branches:
+      - preprod      # merge sur preprod -> deploy preprod (auto)
+      - main         # merge sur main    -> release + deploy prod (validation humaine)
+
+permissions:
+  contents: write    # write : semantic-release doit pouvoir creer tags/release/commit changelog
+  packages: write    # push des images sur GHCR
+
+jobs:
+  # ===========================================================================
+  # JOB build-preprod : uniquement sur la branche preprod
+  # Build l'image (tag = preprod-<sha>) + deploie sur la VM preprod
+  # ===========================================================================
+  build-preprod:
+    if: github.ref_name == 'preprod'
+    runs-on: ubuntu-latest
+    environment: preprod        # environnement GitHub "preprod" (pas de validation requise)
+    steps:
+      - name: Recuperer le code
+        uses: actions/checkout@v4
+
+      - name: Definir le tag d'image (SHA court)
+        id: meta
+        run: echo "tag=preprod-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Connexion a GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build et push de l'image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./src
+          push: true
+          tags: ghcr.io/${{ github.repository }}:${{ steps.meta.outputs.tag }}
+
+      - name: Installer Terraform et Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
+          wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+          sudo apt-get update && sudo apt-get install -y terraform
+
+      - name: Terraform apply (provisionne la VM preprod)
+        working-directory: ./terraform
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+          TF_WORKSPACE: pictionary-preprod
+          OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+          OS_USERNAME: ${{ secrets.OS_USERNAME }}
+          OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+          OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
+          OS_TENANT_NAME: ${{ secrets.OS_TENANT_NAME }}
+          OS_REGION_NAME: ${{ secrets.OS_REGION_NAME }}
+          OS_USER_DOMAIN_NAME: ${{ secrets.OS_USER_DOMAIN_NAME }}
+          OS_PROJECT_DOMAIN_NAME: ${{ secrets.OS_PROJECT_DOMAIN_NAME }}
+        run: |
+          terraform init
+          terraform apply -auto-approve
+          echo "VM_IP=$(terraform output -raw instance_ip)" >> "$GITHUB_ENV"
+
+      - name: Preparer la cle SSH et le mot de passe Vault
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > /tmp/vault-pass.txt
+
+      - name: Deploiement Ansible (K3s + app) sur la VM
+        working-directory: ./ansible
+        env:
+          OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+          OS_USERNAME: ${{ secrets.OS_USERNAME }}
+          OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+          OS_REGION_NAME: ${{ secrets.OS_REGION_NAME }}
+        run: |
+          ansible-playbook -i "${{ env.VM_IP }}," playbook.yml \
+            --vault-password-file /tmp/vault-pass.txt \
+            --extra-vars "image_tag=preprod-$(git rev-parse --short HEAD)"
+
+      - name: Nettoyer les fichiers sensibles
+        if: always()
+        run: rm -f ~/.ssh/id_rsa /tmp/vault-pass.txt
+
+  # ===========================================================================
+  # JOB release : uniquement sur la branche main
+  # semantic-release analyse les commits, calcule la version, cree tag+release,
+  # genere le CHANGELOG, et ecrit la version dans .VERSION (via plugin exec).
+  # ===========================================================================
+  release:
+    if: github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.semantic.outputs.version }}
+      published: ${{ steps.semantic.outputs.published }}
+    steps:
+      - name: Recuperer le code (historique complet requis par semantic-release)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Installer les dependances semantic-release
+        run: npm install
+
+      - name: Lancer semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
+
+      - name: Lire la version publiee
+        id: semantic
+        run: |
+          # Le plugin exec a ecrit la version dans .VERSION SI une release a eu lieu.
+          if [ -f .VERSION ]; then
+            VERSION=$(cat .VERSION)
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "Nouvelle version publiee : $VERSION"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "Aucune nouvelle version (commits sans impact de version)"
+          fi
+
+  # ===========================================================================
+  # JOB notify-prod : notifie Discord qu'un deploiement prod attend validation
+  # Tourne seulement si une nouvelle version a ete publiee.
+  # ===========================================================================
+  notify-prod:
+    needs: release
+    if: needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notifier Discord (deploiement en attente de validation)
+        run: |
+          curl -H "Content-Type: application/json" \
+            -d '{
+              "content": "**Deploiement PROD en attente de validation**\nVersion `${{ needs.release.outputs.version }}` prete a partir en production.\nValider ici : https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }' \
+            "${{ secrets.DISCORD_WEBHOOK_URL }}"
+
+  # ===========================================================================
+  # JOB deploy-prod : build l'image versionnee + deploie en prod
+  # environment: production -> met le job EN PAUSE jusqu'a validation humaine
+  # (configure dans Settings > Environments > production > Required reviewers)
+  # ===========================================================================
+  deploy-prod:
+    needs: [release, notify-prod]
+    if: needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    environment: production       # <-- LA pause + demande d'approbation humaine
+    steps:
+      - name: Recuperer le code
+        uses: actions/checkout@v4
+
+      - name: Connexion a GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build et push de l'image versionnee (SemVer)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./src
+          push: true
+          tags: ghcr.io/${{ github.repository }}:${{ needs.release.outputs.version }}
+
+      - name: Installer Terraform et Ansible
+        run: |
+          sudo apt-get update && sudo apt-get install -y ansible
+          wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+          sudo apt-get update && sudo apt-get install -y terraform
+
+      - name: Terraform apply (provisionne la VM prod)
+        working-directory: ./terraform
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+          TF_WORKSPACE: pictionary-prod
+          OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+          OS_USERNAME: ${{ secrets.OS_USERNAME }}
+          OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+          OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
+          OS_TENANT_NAME: ${{ secrets.OS_TENANT_NAME }}
+          OS_REGION_NAME: ${{ secrets.OS_REGION_NAME }}
+          OS_USER_DOMAIN_NAME: ${{ secrets.OS_USER_DOMAIN_NAME }}
+          OS_PROJECT_DOMAIN_NAME: ${{ secrets.OS_PROJECT_DOMAIN_NAME }}
+        run: |
+          terraform init
+          terraform apply -auto-approve
+          echo "VM_IP=$(terraform output -raw instance_ip)" >> "$GITHUB_ENV"
+
+      - name: Preparer cle SSH et mot de passe Vault
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > /tmp/vault-pass.txt
+
+      - name: Deploiement Ansible en prod (image versionnee)
+        working-directory: ./ansible
+        env:
+          OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+          OS_USERNAME: ${{ secrets.OS_USERNAME }}
+          OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+          OS_REGION_NAME: ${{ secrets.OS_REGION_NAME }}
+        run: |
+          ansible-playbook -i "${{ env.VM_IP }}," playbook.yml \
+            --vault-password-file /tmp/vault-pass.txt \
+            --extra-vars "image_tag=${{ needs.release.outputs.version }}"
+
+      - name: Nettoyer les fichiers sensibles
+        if: always()
+        run: rm -f ~/.ssh/id_rsa /tmp/vault-pass.txt
+
+      - name: Notifier Discord (deploiement reussi)
+        if: success()
+        run: |
+          curl -H "Content-Type: application/json" \
+            -d '{"content": "**Deploiement PROD reussi** : version `${{ needs.release.outputs.version }}` est en production."}' \
+            "${{ secrets.DISCORD_WEBHOOK_URL }}"
