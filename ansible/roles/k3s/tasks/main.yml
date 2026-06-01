@@ -1,0 +1,35 @@
+
+- name: Verifier si K3s est deja installe
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s
+  register: k3s_binary
+
+- name: Telecharger et installer K3s (script officiel Rancher)
+  ansible.builtin.shell: |
+    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" sh -
+  args:
+    creates: /usr/local/bin/k3s
+  become: true
+
+- name: Attendre que l'API K3s reponde (kubeconfig genere)
+  ansible.builtin.wait_for:
+    path: "{{ kubeconfig_path }}"
+    timeout: 120
+  become: true
+
+- name: Attendre que le noeud K3s soit Ready
+  ansible.builtin.shell: |
+    k3s kubectl wait --for=condition=Ready node --all --timeout=120s
+  become: true
+  changed_when: false              # commande de verification : ne "change" rien
+
+- name: Verifier que les pods systeme sont demarres
+  ansible.builtin.shell: |
+    k3s kubectl get pods -n kube-system
+  become: true
+  changed_when: false
+  register: kube_system_pods
+
+- name: Afficher l'etat des pods systeme
+  ansible.builtin.debug:
+    var: kube_system_pods.stdout_lines

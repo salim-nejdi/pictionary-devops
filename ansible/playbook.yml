@@ -1,0 +1,14 @@
+# Lance dans l'ordre : installation de K3s, puis deploiement de l'application.
+# Lancement CI/CD (option 3, IP passee dynamiquement) :
+#   ansible-playbook -i "$IP," playbook.yml \
+#     --vault-password-file vault-pass.txt \
+#     --extra-vars "image_tag=1.2.0"
+
+- name: Deployer Pictionary sur K3s
+  hosts: all                    # s'applique a tous les hotes fournis (groupe "all")
+  become: true                  # execution en root par defaut (sudo)
+  gather_facts: true            # collecte les infos systeme de la VM
+
+  roles:
+    - k3s                       # 1. installe et demarre K3s
+    - deploy                    # 2. cree le Secret + applique les manifestes
