@@ -1,3 +1,9 @@
+## [1.0.2](https://github.com/salim-nejdi/pictionary-devops/compare/v1.0.1...v1.0.2) (2026-06-02)
+
+### Bug Fixes
+
+* **k8s:** remove Traefik Middleware CRD dependency from ingress ([f03adb7](https://github.com/salim-nejdi/pictionary-devops/commit/f03adb7694708b52fdc0f5399a54d7564ea0c091))
+
 ## [1.0.1](https://github.com/salim-nejdi/pictionary-devops/compare/v1.0.0...v1.0.1) (2026-06-02)
 
 ### Bug Fixes
