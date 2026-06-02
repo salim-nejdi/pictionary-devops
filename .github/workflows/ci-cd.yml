@@ -74,6 +74,19 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > /tmp/vault-pass.txt
 
+      - name: Attendre que le SSH de la VM soit pret
+        run: |
+          for i in $(seq 1 30); do
+            if nc -z -w5 "${{ env.VM_IP }}" 22; then
+              echo "SSH pret apres $i tentative(s)."
+              exit 0
+            fi
+            echo "Tentative $i/30 : SSH pas encore pret, attente 10s..."
+            sleep 10
+          done
+          echo "SSH toujours injoignable apres 5 minutes."
+          exit 1
+
       - name: Deploiement Ansible (K3s + app) sur la VM
         working-directory: ./ansible
         env:
@@ -211,6 +224,19 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > /tmp/vault-pass.txt
+
+      - name: Attendre que le SSH de la VM soit pret
+        run: |
+          for i in $(seq 1 30); do
+            if nc -z -w5 "${{ env.VM_IP }}" 22; then
+              echo "SSH pret apres $i tentative(s)."
+              exit 0
+            fi
+            echo "Tentative $i/30 : SSH pas encore pret, attente 10s..."
+            sleep 10
+          done
+          echo "SSH toujours injoignable apres 5 minutes."
+          exit 1
 
       - name: Deploiement Ansible en prod (image versionnee)
         working-directory: ./ansible
