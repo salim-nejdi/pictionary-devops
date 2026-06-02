@@ -155,6 +155,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
             align-items: center;
             justify-content: center;
             padding: 20px;
+            overflow: hidden; /* Empêche le scroll pendant l'animation Bravo */
         }
 
         @keyframes gradientShift {
@@ -186,6 +187,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
             width: 100%;
             text-align: center;
             position: relative;
+            z-index: 10;
             animation: cardPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
@@ -278,7 +280,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
 
         @keyframes pulse {
             0%, 100% { transform: scale(1);   }
-            50%       { transform: scale(1.1); }
+            50%      { transform: scale(1.1); }
         }
 
         .divider {
@@ -344,14 +346,36 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
             box-shadow: 0 2px 8px rgba(0,0,0,0.25);
             z-index: 1000;
         }
-        /* Prod : badge sobre et discret */
         .version-prod { background: rgba(67, 170, 139, 0.9); }
-        /* Preprod : badge orange voyant pour ne pas confondre avec la prod */
         .version-preprod {
             background: #f3722c;
             border: 2px solid white;
             text-transform: uppercase;
             letter-spacing: 1px;
+        }
+
+        /* -----------------------------------------------------------------
+           ANIMATION BRAVO EN FOND
+           ----------------------------------------------------------------- */
+        .bravo-bg {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Fredoka One', cursive;
+            font-size: 12vw;
+            color: rgba(255, 255, 255, 0.5);
+            text-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            pointer-events: none;
+            z-index: 5; /* Derrière la carte (z-index: 10) mais au-dessus du fond */
+            opacity: 0;
+            animation: floatBravo 1.5s ease-out forwards;
+        }
+
+        @keyframes floatBravo {
+            0%   { transform: translate(-50%, -30%) scale(0.5) rotate(-5deg); opacity: 0; }
+            20%  { transform: translate(-50%, -50%) scale(1.1) rotate(5deg); opacity: 1; }
+            100% { transform: translate(-50%, -80%) scale(1.3) rotate(0deg); opacity: 0; }
         }
     </style>
 </head>
@@ -566,6 +590,16 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
 
                     wordEl.classList.add('pop');
                     emojiEl.classList.add('pop');
+
+                    // ---------------------------------------------------------
+                    // ANIMATION BRAVO EN FOND
+                    // ---------------------------------------------------------
+                    const bravoEl = document.createElement('div');
+                    bravoEl.className = 'bravo-bg';
+                    bravoEl.textContent = 'BRAVO !';
+                    document.body.appendChild(bravoEl);
+                    // Suppression de l'élément une fois l'animation terminée (1.5s)
+                    setTimeout(() => bravoEl.remove(), 1500);
 
                     btn.disabled = false;
 
