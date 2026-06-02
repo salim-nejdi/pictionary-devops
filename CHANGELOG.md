@@ -1,3 +1,25 @@
+## [1.2.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.1.0...v1.2.0) (2026-06-02)
+
+### Features
+
+* **ci:** preprod smoke tests with auto PR to main ([c20bfc2](https://github.com/salim-nejdi/pictionary-devops/commit/c20bfc28d2e7504e6daa2e65a749aea6d0474575))
+* **ci:** preprod smoke tests with auto PR to main V2 ([e954cf4](https://github.com/salim-nejdi/pictionary-devops/commit/e954cf4483364464d1f50a7c321b0a1ed18f2507))
+* **ci:** preprod smoke tests with auto PR to main V3 ([0c0a488](https://github.com/salim-nejdi/pictionary-devops/commit/0c0a4888c780b676d78eddd382125ec67ae625ab))
+* **ci:** preprod smoke tests with auto PR to main V4 ([b70ee6c](https://github.com/salim-nejdi/pictionary-devops/commit/b70ee6ccda5e0fb74437a76726356ecc0efb2fa9))
+* **ci:** preprod smoke tests with auto PR to main V5 ([01f569b](https://github.com/salim-nejdi/pictionary-devops/commit/01f569b05d9466b7fec3f43854f96d78a6ca8891))
+* nouvelle version de demonstration ([53f8f2e](https://github.com/salim-nejdi/pictionary-devops/commit/53f8f2e3777dd586cee3118e2357c2691ea48378))
+
+### Bug Fixes
+
+* **ci:** set semantic-release branch to preprod ([9d3f9cd](https://github.com/salim-nejdi/pictionary-devops/commit/9d3f9cd18de67cbb756c6e5557b62a40d089bdaf))
+* **ci:** use PAT for merge to trigger release workflow on main ([07dff09](https://github.com/salim-nejdi/pictionary-devops/commit/07dff090b713df08401635293a18dec1a9734797))
+* **ci:** use PAT for merge to trigger release workflow on main bis ([995eb1e](https://github.com/salim-nejdi/pictionary-devops/commit/995eb1e23c226dc5369f4b36653e20bdb94db106))
+* **ci:** use PAT for merge to trigger release workflow on main ter ([be097ac](https://github.com/salim-nejdi/pictionary-devops/commit/be097ac851b10f0a8aadf72538c31547d874230f))
+* **ci:** use PAT for merge to trigger release workflow on main v4 ([d0cc3e8](https://github.com/salim-nejdi/pictionary-devops/commit/d0cc3e8570f3ae51ca934da4a7f429caf69df3d9))
+* **ci:** use PAT for merge to trigger release workflow on main v5 ([e0aeb95](https://github.com/salim-nejdi/pictionary-devops/commit/e0aeb95138f731823f9ff36b3b88a548305086a9))
+* **ci:** use PAT for merge to trigger release workflow on main v6 ([1bcb464](https://github.com/salim-nejdi/pictionary-devops/commit/1bcb464669a30e260b96311a496562d40b5a2067))
+* test cycle complet numéro 1 ([1e28bc5](https://github.com/salim-nejdi/pictionary-devops/commit/1e28bc5168ad060e2bf9a5bfa4166d94795899e1))
+
 ## [1.1.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.0.2...v1.1.0) (2026-06-02)
 
 ### Features
