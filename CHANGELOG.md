@@ -1,3 +1,9 @@
+## [1.0.1](https://github.com/salim-nejdi/pictionary-devops/compare/v1.0.0...v1.0.1) (2026-06-02)
+
+### Bug Fixes
+
+* **ci:** wait for VM SSH readiness before running Ansible ([59f2040](https://github.com/salim-nejdi/pictionary-devops/commit/59f2040f6a075cc60208814856a023fc47a52ddc))
+
 ## 1.0.0 (2026-06-02)
 
 ### Features
