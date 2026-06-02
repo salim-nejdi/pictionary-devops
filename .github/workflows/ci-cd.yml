@@ -1,30 +1,26 @@
 name: CI/CD Pictionary
 
+# Un seul run, declenche par un push sur preprod, enchaine tout via "needs" :
+# build -> deploy preprod -> smoke tests -> release -> deploy prod (validation humaine)
 on:
   push:
     branches:
-      - preprod      # merge sur preprod -> deploy preprod (auto)
-      - main         # merge sur main    -> release + deploy prod (validation humaine)
+      - preprod
 
 permissions:
-  contents: write    # write : semantic-release doit pouvoir creer tags/release/commit changelog
-  packages: write    # push des images sur GHCR
-  pull-requests: write  # ouverture automatique de la PR preprod -> main
+  contents: write    # semantic-release : creation tags/release/commit changelog
+  packages: write    # push images sur GHCR
 
 jobs:
   # ===========================================================================
-  # JOB build-preprod : uniquement sur la branche preprod
-  # Build l'image (tag = preprod-<sha>) + deploie sur la VM preprod
+  # 1. BUILD : construit l'image preprod (tag = SHA court) et la pousse sur GHCR
   # ===========================================================================
-  build-preprod:
-    if: github.ref_name == 'preprod'
+  build:
     runs-on: ubuntu-latest
-    environment: preprod        # environnement GitHub "preprod" (pas de validation requise)
+    outputs:
+      sha_tag: ${{ steps.meta.outputs.tag }}
     steps:
-      - name: Recuperer le code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # historique complet : necessaire pour merger preprod<->main
+      - uses: actions/checkout@v4
 
       - name: Definir le tag d'image (SHA court)
         id: meta
@@ -37,7 +33,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build et push de l'image
+      - name: Build et push de l'image preprod
         uses: docker/build-push-action@v6
         with:
           context: ./src
@@ -46,15 +42,27 @@ jobs:
           build-args: |
             VERSION=${{ steps.meta.outputs.tag }}
 
+  # ===========================================================================
+  # 2. DEPLOY-PREPROD : Terraform (VM) + Ansible (K3s + app) en preproduction
+  # ===========================================================================
+  deploy-preprod:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: preprod
+    outputs:
+      vm_ip: ${{ steps.tf.outputs.ip }}
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Installer Terraform et Ansible
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ansible
+          sudo apt-get update && sudo apt-get install -y ansible netcat-openbsd
           wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
           echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
           sudo apt-get update && sudo apt-get install -y terraform
 
-      - name: Terraform apply (provisionne la VM preprod)
+      - name: Terraform apply (VM preprod)
+        id: tf
         working-directory: ./terraform
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
@@ -70,29 +78,24 @@ jobs:
         run: |
           terraform init
           terraform apply -auto-approve
-          echo "VM_IP=$(terraform output -raw instance_ip)" >> "$GITHUB_ENV"
+          echo "ip=$(terraform output -raw instance_ip)" >> "$GITHUB_OUTPUT"
 
-      - name: Preparer la cle SSH et le mot de passe Vault
+      - name: Preparer cle SSH et mot de passe Vault
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > /tmp/vault-pass.txt
 
-      - name: Attendre que le SSH de la VM soit pret
+      - name: Attendre que le SSH soit pret
         run: |
           for i in $(seq 1 30); do
-            if nc -z -w5 "${{ env.VM_IP }}" 22; then
-              echo "SSH pret apres $i tentative(s)."
-              exit 0
-            fi
-            echo "Tentative $i/30 : SSH pas encore pret, attente 10s..."
-            sleep 10
+            if nc -z -w5 "${{ steps.tf.outputs.ip }}" 22; then echo "SSH pret"; exit 0; fi
+            echo "Attente SSH $i/30..."; sleep 10
           done
-          echo "SSH toujours injoignable apres 5 minutes."
-          exit 1
+          echo "SSH injoignable"; exit 1
 
-      - name: Deploiement Ansible (K3s + app) sur la VM
+      - name: Deploiement Ansible (K3s + app)
         working-directory: ./ansible
         env:
           OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
@@ -100,20 +103,25 @@ jobs:
           OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
           OS_REGION_NAME: ${{ secrets.OS_REGION_NAME }}
         run: |
-          ansible-playbook -i "${{ env.VM_IP }}," playbook.yml \
+          ansible-playbook -i "${{ steps.tf.outputs.ip }}," playbook.yml \
             --vault-password-file /tmp/vault-pass.txt \
-            --extra-vars "image_tag=preprod-$(git rev-parse --short HEAD)"
+            --extra-vars "image_tag=${{ needs.build.outputs.sha_tag }}"
 
       - name: Nettoyer les fichiers sensibles
         if: always()
         run: rm -f ~/.ssh/id_rsa /tmp/vault-pass.txt
 
-      - name: Smoke tests sur la preprod deployee
-        id: tests
+  # ===========================================================================
+  # 3. SMOKE-TESTS : verifie que la preprod repond correctement
+  # ===========================================================================
+  smoke-tests:
+    needs: deploy-preprod
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tests sur la preprod
         run: |
-          IP="${{ env.VM_IP }}"
+          IP="${{ needs.deploy-preprod.outputs.vm_ip }}"
           echo "Tests sur https://$IP"
-          # On attend un vrai HTTP 200 (les pods peuvent mettre du temps : pull image + readiness)
           OK=0
           for i in $(seq 1 30); do
             CODE=$(curl -ks -o /dev/null -w "%{http_code}" "https://$IP/" || echo "000")
@@ -121,64 +129,37 @@ jobs:
             if [ "$CODE" = "200" ]; then OK=1; break; fi
             sleep 10
           done
-          [ "$OK" = "1" ] || { echo "App jamais prete (dernier code: $CODE)"; exit 1; }
-          echo "Test 1 OK : site joignable (200)"
+          [ "$OK" = "1" ] || { echo "App jamais prete"; exit 1; }
+          echo "Test 1 OK : site joignable"
 
-          # Test 2 : la page contient bien "Pictionary"
-          # On capture la page dans une variable (une seule requete, plus fiable qu'un pipe)
           PAGE=$(curl -ks "https://$IP/")
-          if ! echo "$PAGE" | grep -qi "pictionary"; then
-            echo "Test 2 ECHEC : contenu absent. Voici les 600 premiers caracteres recus :"
-            echo "$PAGE" | head -c 600
-            echo ""
-            exit 1
-          fi
+          echo "$PAGE" | grep -qi "pictionary" || { echo "Test 2 ECHEC"; echo "$PAGE" | head -c 500; exit 1; }
           echo "Test 2 OK : contenu present"
 
-          # Test 3 : l'API renvoie quelque chose (prouve la chaine web -> DB)
           API=$(curl -ks "https://$IP/?action=get_word")
           [ -n "$API" ] || { echo "Test 3 ECHEC : API vide"; exit 1; }
-          echo "Test 3 OK : API + BDD fonctionnelles (reponse: $API)"
-
-      - name: Promouvoir preprod -> main (smoke tests OK)
-        if: success()
-        run: |
-          # PAT pour pouvoir pousser sur main ET declencher le workflow release
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
-          git fetch origin main preprod
-
-          # On se place sur main et on y fusionne preprod (qui contient deja tout main + les nouveautes)
-          git checkout main
-          git merge origin/preprod --no-edit
-          git push origin main
+          echo "Test 3 OK : API + BDD fonctionnelles"
 
   # ===========================================================================
-  # JOB release : uniquement sur la branche main
-  # semantic-release analyse les commits, calcule la version, cree tag+release,
-  # genere le CHANGELOG, et ecrit la version dans .VERSION (via plugin exec).
+  # 4. RELEASE : semantic-release calcule la version, cree tag + release + changelog
   # ===========================================================================
   release:
-    if: github.ref_name == 'main'
+    needs: smoke-tests
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.semantic.outputs.version }}
       published: ${{ steps.semantic.outputs.published }}
     steps:
-      - name: Recuperer le code (historique complet requis par semantic-release)
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Installer Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Installer les dependances semantic-release
-        run: npm install
+      - run: npm install
 
       - name: Lancer semantic-release
         env:
@@ -188,47 +169,39 @@ jobs:
       - name: Lire la version publiee
         id: semantic
         run: |
-          # Le plugin exec a ecrit la version dans .VERSION SI une release a eu lieu.
           if [ -f .VERSION ]; then
-            VERSION=$(cat .VERSION)
-            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "version=$(cat .VERSION)" >> "$GITHUB_OUTPUT"
             echo "published=true" >> "$GITHUB_OUTPUT"
-            echo "Nouvelle version publiee : $VERSION"
+            echo "Version publiee : $(cat .VERSION)"
           else
             echo "published=false" >> "$GITHUB_OUTPUT"
-            echo "Aucune nouvelle version (commits sans impact de version)"
+            echo "Aucune nouvelle version (commits sans impact)"
           fi
 
   # ===========================================================================
-  # JOB notify-prod : notifie Discord qu'un deploiement prod attend validation
-  # Tourne seulement si une nouvelle version a ete publiee.
+  # 5. NOTIFY-PROD : notifie Discord qu'une validation prod est attendue
   # ===========================================================================
   notify-prod:
     needs: release
     if: needs.release.outputs.published == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Notifier Discord (deploiement en attente de validation)
+      - name: Notifier Discord
         run: |
           curl -H "Content-Type: application/json" \
-            -d '{
-              "content": "**Deploiement PROD en attente de validation**\nVersion `${{ needs.release.outputs.version }}` prete a partir en production.\nValider ici : https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-            }' \
+            -d '{"content": "**Deploiement PROD en attente de validation**\nVersion `${{ needs.release.outputs.version }}` prete.\nValider : https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' \
             "${{ secrets.DISCORD_WEBHOOK_URL }}"
 
   # ===========================================================================
-  # JOB deploy-prod : build l'image versionnee + deploie en prod
-  # environment: production -> met le job EN PAUSE jusqu'a validation humaine
-  # (configure dans Settings > Environments > production > Required reviewers)
+  # 6. DEPLOY-PROD : build image versionnee + deploie (PAUSE validation humaine)
   # ===========================================================================
   deploy-prod:
     needs: [release, notify-prod]
     if: needs.release.outputs.published == 'true'
     runs-on: ubuntu-latest
-    environment: production       # <-- LA pause + demande d'approbation humaine
+    environment: production    # <-- pause + approbation humaine requise
     steps:
-      - name: Recuperer le code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Connexion a GHCR
         uses: docker/login-action@v3
@@ -237,7 +210,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build et push de l'image versionnee (SemVer)
+      - name: Build et push image versionnee (SemVer)
         uses: docker/build-push-action@v6
         with:
           context: ./src
@@ -248,12 +221,13 @@ jobs:
 
       - name: Installer Terraform et Ansible
         run: |
-          sudo apt-get update && sudo apt-get install -y ansible
+          sudo apt-get update && sudo apt-get install -y ansible netcat-openbsd
           wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
           echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
           sudo apt-get update && sudo apt-get install -y terraform
 
-      - name: Terraform apply (provisionne la VM prod)
+      - name: Terraform apply (VM prod)
+        id: tf
         working-directory: ./terraform
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
@@ -269,7 +243,7 @@ jobs:
         run: |
           terraform init
           terraform apply -auto-approve
-          echo "VM_IP=$(terraform output -raw instance_ip)" >> "$GITHUB_ENV"
+          echo "ip=$(terraform output -raw instance_ip)" >> "$GITHUB_OUTPUT"
 
       - name: Preparer cle SSH et mot de passe Vault
         run: |
@@ -278,18 +252,13 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > /tmp/vault-pass.txt
 
-      - name: Attendre que le SSH de la VM soit pret
+      - name: Attendre que le SSH soit pret
         run: |
           for i in $(seq 1 30); do
-            if nc -z -w5 "${{ env.VM_IP }}" 22; then
-              echo "SSH pret apres $i tentative(s)."
-              exit 0
-            fi
-            echo "Tentative $i/30 : SSH pas encore pret, attente 10s..."
-            sleep 10
+            if nc -z -w5 "${{ steps.tf.outputs.ip }}" 22; then echo "SSH pret"; exit 0; fi
+            echo "Attente SSH $i/30..."; sleep 10
           done
-          echo "SSH toujours injoignable apres 5 minutes."
-          exit 1
+          echo "SSH injoignable"; exit 1
 
       - name: Deploiement Ansible en prod (image versionnee)
         working-directory: ./ansible
@@ -299,7 +268,7 @@ jobs:
           OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
           OS_REGION_NAME: ${{ secrets.OS_REGION_NAME }}
         run: |
-          ansible-playbook -i "${{ env.VM_IP }}," playbook.yml \
+          ansible-playbook -i "${{ steps.tf.outputs.ip }}," playbook.yml \
             --vault-password-file /tmp/vault-pass.txt \
             --extra-vars "image_tag=${{ needs.release.outputs.version }}"
 
@@ -307,9 +276,9 @@ jobs:
         if: always()
         run: rm -f ~/.ssh/id_rsa /tmp/vault-pass.txt
 
-      - name: Notifier Discord (deploiement reussi)
+      - name: Notifier Discord (succes)
         if: success()
         run: |
           curl -H "Content-Type: application/json" \
-            -d '{"content": "**Deploiement PROD reussi** : version `${{ needs.release.outputs.version }}` est en production."}' \
+            -d '{"content": "**Deploiement PROD reussi** : version `${{ needs.release.outputs.version }}` en production."}' \
             "${{ secrets.DISCORD_WEBHOOK_URL }}"
