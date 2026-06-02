@@ -1,3 +1,9 @@
+## [1.3.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.2.0...v1.3.0) (2026-06-02)
+
+### Features
+
+* add word counter with encouragement messages ([ce8bd1a](https://github.com/salim-nejdi/pictionary-devops/commit/ce8bd1a6a914888f9b0515c94740e6f84a9ec37e))
+
 ## [1.2.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.1.0...v1.2.0) (2026-06-02)
 
 ### Features
