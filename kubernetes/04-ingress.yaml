@@ -1,14 +1,5 @@
-apiVersion: traefik.io/v1alpha1
-kind: Middleware
-metadata:
-  name: redirect-https
-  namespace: pictionary
-spec:
-  redirectScheme:
-    scheme: https
-    permanent: true
-
----
+# 04-ingress.yaml — Exposition HTTP + HTTPS (cert auto-signe Traefik).
+# Pas de Middleware (CRD non garanti) : l'app repond en HTTP et HTTPS, sans redirection auto.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -16,8 +7,7 @@ metadata:
   namespace: pictionary
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
-    traefik.ingress.kubernetes.io/router.tls: "true"   # active HTTPS (cert par defaut Traefik)
-    traefik.ingress.kubernetes.io/router.middlewares: pictionary-redirect-https@kubernetescrd
+    traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
   ingressClassName: traefik
   rules:
