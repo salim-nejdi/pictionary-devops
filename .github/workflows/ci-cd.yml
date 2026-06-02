@@ -111,16 +111,15 @@ jobs:
         run: |
           IP="${{ env.VM_IP }}"
           echo "Tests sur https://$IP"
-          # -k : accepte le certificat auto-signe ; on retente quelques fois le temps que l'app reponde
-          for i in $(seq 1 10); do
-            if curl -ksf "https://$IP/" > /dev/null; then break; fi
-            echo "Attente que l'app reponde ($i/10)..."; sleep 6
+          # On attend un vrai HTTP 200 (les pods peuvent mettre du temps : pull image + readiness)
+          OK=0
+          for i in $(seq 1 30); do
+            CODE=$(curl -ks -o /dev/null -w "%{http_code}" "https://$IP/" || echo "000")
+            echo "Tentative $i/30 : HTTP $CODE"
+            if [ "$CODE" = "200" ]; then OK=1; break; fi
+            sleep 10
           done
-
-          # Test 1 : site joignable (code HTTP 200)
-          CODE=$(curl -ks -o /dev/null -w "%{http_code}" "https://$IP/")
-          [ "$CODE" = "200" ] || { echo "Test 1 ECHEC : HTTP $CODE"; exit 1; }
-          echo "Test 1 OK : site joignable (200)"
+          [ "$OK" = "1" ] || { echo "App jamais prete (dernier code: $CODE)"; exit 1; }
 
           # Test 2 : la page contient bien "Pictionary"
           curl -ks "https://$IP/" | grep -qi "pictionary" || { echo "Test 2 ECHEC : contenu absent"; exit 1; }
