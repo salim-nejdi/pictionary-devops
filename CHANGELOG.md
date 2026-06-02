@@ -1,3 +1,9 @@
+## [1.5.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.4.0...v1.5.0) (2026-06-02)
+
+### Features
+
+* add /encouragement ([e235bd1](https://github.com/salim-nejdi/pictionary-devops/commit/e235bd1472843c3b936f2fad43dfe4f3c02fa080))
+
 ## [1.4.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.3.0...v1.4.0) (2026-06-02)
 
 ### Features
