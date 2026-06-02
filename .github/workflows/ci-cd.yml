@@ -9,6 +9,7 @@ on:
 permissions:
   contents: write    # write : semantic-release doit pouvoir creer tags/release/commit changelog
   packages: write    # push des images sur GHCR
+  pull-requests: write  # ouverture automatique de la PR preprod -> main
 
 jobs:
   # ===========================================================================
@@ -104,6 +105,42 @@ jobs:
       - name: Nettoyer les fichiers sensibles
         if: always()
         run: rm -f ~/.ssh/id_rsa /tmp/vault-pass.txt
+
+      - name: Smoke tests sur la preprod deployee
+        id: tests
+        run: |
+          IP="${{ env.VM_IP }}"
+          echo "Tests sur https://$IP"
+          # -k : accepte le certificat auto-signe ; on retente quelques fois le temps que l'app reponde
+          for i in $(seq 1 10); do
+            if curl -ksf "https://$IP/" > /dev/null; then break; fi
+            echo "Attente que l'app reponde ($i/10)..."; sleep 6
+          done
+
+          # Test 1 : site joignable (code HTTP 200)
+          CODE=$(curl -ks -o /dev/null -w "%{http_code}" "https://$IP/")
+          [ "$CODE" = "200" ] || { echo "Test 1 ECHEC : HTTP $CODE"; exit 1; }
+          echo "Test 1 OK : site joignable (200)"
+
+          # Test 2 : la page contient bien "Pictionary"
+          curl -ks "https://$IP/" | grep -qi "pictionary" || { echo "Test 2 ECHEC : contenu absent"; exit 1; }
+          echo "Test 2 OK : contenu present"
+
+          # Test 3 : l'API renvoie un mot (prouve la chaine web -> DB)
+          curl -ks "https://$IP/?action=get_word" | grep -qi "mot\|word\|[a-zA-Z]" || { echo "Test 3 ECHEC : API muette"; exit 1; }
+          echo "Test 3 OK : API + BDD fonctionnelles"
+
+      - name: Ouvrir automatiquement la PR preprod -> main
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Cree la PR si elle n'existe pas deja. Le merge reste MANUEL (validation humaine).
+          gh pr create \
+            --base main --head preprod \
+            --title "Promotion preprod -> main (smoke tests OK)" \
+            --body "Les smoke tests preprod sont passes. PR ouverte automatiquement. Merge manuel requis pour declencher la mise en production." \
+            || echo "Une PR preprod -> main existe deja, rien a creer."
 
   # ===========================================================================
   # JOB release : uniquement sur la branche main
