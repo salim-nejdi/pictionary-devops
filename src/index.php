@@ -318,6 +318,18 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
 
         .stars { font-size: 1.2em; color: #f9c74f; margin-top: 20px; letter-spacing: 4px; }
 
+        /* Compteur de mots joues */
+        .score-box {
+            margin-top: 18px;
+            padding: 12px 20px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 16px;
+            font-weight: 700;
+            color: white;
+        }
+        .score-box #count { font-size: 1.6em; color: #f9c74f; }
+        .score-msg { font-size: 0.9em; margin-top: 6px; opacity: 0.9; }
+
         /* Badge de version en bas de page */
         .version-badge {
             position: fixed;
@@ -388,6 +400,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
         <button id="btn" onclick="generateWord()">🎲 Nouveau mot !</button>
 
         <div class="stars">★ ★ ★ ★ ★</div>
+
+        <div class="score-box">
+            🏆 Mots joues : <span id="count">0</span>
+            <div class="score-msg" id="score-msg">Lance ton premier mot !</div>
+        </div>
     </div>
 
     <script>
@@ -494,6 +511,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
         // Sans async/await, on utiliserait des .then().catch() chaînés —
         // plus difficile à lire.
         // -----------------------------------------------------------------
+        // Compteur de mots joues durant la session
+        let wordCount = 0;
+
         async function generateWord() {
             const wordEl   = document.getElementById('word-display');
             const emojiEl  = document.getElementById('emoji-display');
@@ -525,6 +545,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
                 setTimeout(() => {
                     wordEl.textContent  = data.mot;
                     emojiEl.textContent = getEmoji(data.mot);
+
+                    // Incremente le compteur de mots joues + message d'encouragement
+                    wordCount++;
+                    document.getElementById('count').textContent = wordCount;
+                    const msgEl = document.getElementById('score-msg');
+                    if (wordCount >= 20)      msgEl.textContent = 'Legende du Pictionary ! 🔥';
+                    else if (wordCount >= 10) msgEl.textContent = 'En feu ! Continue ! 🚀';
+                    else if (wordCount >= 5)  msgEl.textContent = 'Bien joue, tu chauffes ! 😎';
+                    else                      msgEl.textContent = 'Continue comme ca ! ✨';
 
                     wordEl.classList.remove('hidden', 'pop');
                     emojiEl.classList.remove('hidden', 'pop');
