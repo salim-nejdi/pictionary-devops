@@ -6,6 +6,13 @@ on:
   push:
     branches:
       - preprod
+    paths:
+      # Le pipeline ne se declenche QUE si le code applicatif ou l'infra change.
+      # Une modif du bot Discord, des workflows ou de la doc ne declenche rien.
+      - 'src/**'         # code de l'application
+      - 'kubernetes/**'  # manifestes K8s
+      - 'ansible/**'     # configuration / deploiement
+      - 'terraform/**'   # infrastructure
 
 permissions:
   contents: write    # semantic-release : creation tags/release/commit changelog
