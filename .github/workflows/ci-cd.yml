@@ -125,7 +125,12 @@ jobs:
           # Test 2 : la page contient bien "Pictionary"
           # On capture la page dans une variable (une seule requete, plus fiable qu'un pipe)
           PAGE=$(curl -ks "https://$IP/")
-          echo "$PAGE" | grep -qi "pictionary" || { echo "Test 2 ECHEC : contenu absent"; exit 1; }
+          if ! echo "$PAGE" | grep -qi "pictionary"; then
+            echo "Test 2 ECHEC : contenu absent. Voici les 600 premiers caracteres recus :"
+            echo "$PAGE" | head -c 600
+            echo ""
+            exit 1
+          fi
           echo "Test 2 OK : contenu present"
 
           # Test 3 : l'API renvoie quelque chose (prouve la chaine web -> DB)
