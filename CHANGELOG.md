@@ -1,3 +1,9 @@
+## [1.1.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.0.2...v1.1.0) (2026-06-02)
+
+### Features
+
+* **app:** add version badge showing preprod/prod version ([ac8a10e](https://github.com/salim-nejdi/pictionary-devops/commit/ac8a10e91e6e31ace36db90d241a4d19e28270fc))
+
 ## [1.0.2](https://github.com/salim-nejdi/pictionary-devops/compare/v1.0.1...v1.0.2) (2026-06-02)
 
 ### Bug Fixes
