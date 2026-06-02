@@ -140,42 +140,19 @@ jobs:
           [ -n "$API" ] || { echo "Test 3 ECHEC : API vide"; exit 1; }
           echo "Test 3 OK : API + BDD fonctionnelles (reponse: $API)"
 
-      - name: Creer et merger la PR preprod -> main (smoke tests OK)
+      - name: Promouvoir preprod -> main (smoke tests OK)
         if: success()
-        env:
-          # PAT (et non GITHUB_TOKEN) : permet de merger ET de declencher le workflow release sur main
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          # 1. Mettre preprod a jour avec main (sinon GitHub refuse : "Head branch is out of date")
+          # PAT pour pouvoir pousser sur main ET declencher le workflow release
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
           git fetch origin main preprod
-          git checkout preprod
-          git merge origin/main --no-edit || true   # integre les releases de main dans preprod
-          git push origin preprod
 
-          # 2. Creer la PR si besoin
-          if ! gh pr view preprod --json number >/dev/null 2>&1; then
-            gh pr create --base main --head preprod \
-              --title "Promotion preprod -> main (smoke tests OK)" \
-              --body "Smoke tests preprod valides."
-          fi
-
-          # 3. Merger (preprod est maintenant a jour). GitHub met quelques secondes a
-          #    recalculer le statut "mergeable" apres le push : on attend + on retente.
-          sleep 15
-          for i in $(seq 1 6); do
-            if gh pr merge preprod --merge --delete-branch=false; then
-              echo "Merge reussi."
-              exit 0
-            fi
-            echo "Merge pas encore possible (statut en cours de recalcul), tentative $i/6..."
-            sleep 10
-          done
-          echo "Merge impossible apres plusieurs tentatives."
-          exit 1
+          # On se place sur main et on y fusionne preprod (qui contient deja tout main + les nouveautes)
+          git checkout main
+          git merge origin/preprod --no-edit
+          git push origin main
 
   # ===========================================================================
   # JOB release : uniquement sur la branche main
