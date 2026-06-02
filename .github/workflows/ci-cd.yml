@@ -133,21 +133,23 @@ jobs:
           [ -n "$API" ] || { echo "Test 3 ECHEC : API vide"; exit 1; }
           echo "Test 3 OK : API + BDD fonctionnelles (reponse: $API)"
 
-      - name: Creer et auto-merger la PR preprod -> main (smoke tests OK)
+      - name: Creer et merger la PR preprod -> main (smoke tests OK)
         if: success()
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # PAT (et non GITHUB_TOKEN) : permet de merger ET de declencher le workflow release sur main
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          # 1. Cree la PR preprod -> main (ou recupere celle qui existe deja)
-          gh pr create \
-            --base main --head preprod \
-            --title "Promotion preprod -> main (smoke tests OK)" \
-            --body "Smoke tests preprod valides. Auto-merge active : la PR sera fusionnee des que les conditions de la branche sont remplies." \
-            2>/dev/null || echo "PR deja existante, on continue."
-
-          # 2. Active l'auto-merge : GitHub fusionnera automatiquement la PR
-          #    une fois les regles de protection de main satisfaites.
-          gh pr merge preprod --auto --merge
+          # Cree la PR si elle n'existe pas encore (sans masquer les vraies erreurs)
+          if ! gh pr view preprod --json number >/dev/null 2>&1; then
+            gh pr create \
+              --base main --head preprod \
+              --title "Promotion preprod -> main (smoke tests OK)" \
+              --body "Smoke tests preprod valides."
+          else
+            echo "Une PR preprod -> main existe deja."
+          fi
+          # Merge immediat (le ruleset n'exige qu'une PR, deja satisfaite)
+          gh pr merge preprod --merge --delete-branch=false
 
   # ===========================================================================
   # JOB release : uniquement sur la branche main
