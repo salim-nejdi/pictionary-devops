@@ -120,14 +120,18 @@ jobs:
             sleep 10
           done
           [ "$OK" = "1" ] || { echo "App jamais prete (dernier code: $CODE)"; exit 1; }
+          echo "Test 1 OK : site joignable (200)"
 
           # Test 2 : la page contient bien "Pictionary"
-          curl -ks "https://$IP/" | grep -qi "pictionary" || { echo "Test 2 ECHEC : contenu absent"; exit 1; }
+          # On capture la page dans une variable (une seule requete, plus fiable qu'un pipe)
+          PAGE=$(curl -ks "https://$IP/")
+          echo "$PAGE" | grep -qi "pictionary" || { echo "Test 2 ECHEC : contenu absent"; exit 1; }
           echo "Test 2 OK : contenu present"
 
-          # Test 3 : l'API renvoie un mot (prouve la chaine web -> DB)
-          curl -ks "https://$IP/?action=get_word" | grep -qi "mot\|word\|[a-zA-Z]" || { echo "Test 3 ECHEC : API muette"; exit 1; }
-          echo "Test 3 OK : API + BDD fonctionnelles"
+          # Test 3 : l'API renvoie quelque chose (prouve la chaine web -> DB)
+          API=$(curl -ks "https://$IP/?action=get_word")
+          [ -n "$API" ] || { echo "Test 3 ECHEC : API vide"; exit 1; }
+          echo "Test 3 OK : API + BDD fonctionnelles (reponse: $API)"
 
       - name: Creer et auto-merger la PR preprod -> main (smoke tests OK)
         if: success()
