@@ -1,3 +1,9 @@
+## [1.4.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.3.0...v1.4.0) (2026-06-02)
+
+### Features
+
+* add /rollback command with version autocomplete ([1f81b7b](https://github.com/salim-nejdi/pictionary-devops/commit/1f81b7bac4d90ca767db3633b764f098dc598099))
+
 ## [1.3.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.2.0...v1.3.0) (2026-06-02)
 
 ### Features
