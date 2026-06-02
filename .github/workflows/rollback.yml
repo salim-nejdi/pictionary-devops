@@ -1,0 +1,90 @@
+name: Rollback Production
+
+# Declenche manuellement (par le bot Discord ou l'interface GitHub) avec une version cible.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version a redeployer en prod (ex: 1.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  rollback-prod:
+    runs-on: ubuntu-latest
+    environment: production    # <-- pause + validation humaine, comme deploy-prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verifier que l'image de cette version existe sur GHCR
+        run: |
+          echo "Rollback demande vers la version ${{ github.event.inputs.version }}"
+          # L'image ghcr.io/<repo>:<version> doit deja exister (construite lors de sa release initiale)
+
+      - name: Installer Terraform et Ansible
+        run: |
+          sudo apt-get update && sudo apt-get install -y ansible netcat-openbsd
+          wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+          sudo apt-get update && sudo apt-get install -y terraform
+
+      - name: Terraform apply (VM prod)
+        id: tf
+        working-directory: ./terraform
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+          TF_WORKSPACE: pictionary-prod
+          OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+          OS_USERNAME: ${{ secrets.OS_USERNAME }}
+          OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+          OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
+          OS_TENANT_NAME: ${{ secrets.OS_TENANT_NAME }}
+          OS_REGION_NAME: ${{ secrets.OS_REGION_NAME }}
+          OS_USER_DOMAIN_NAME: ${{ secrets.OS_USER_DOMAIN_NAME }}
+          OS_PROJECT_DOMAIN_NAME: ${{ secrets.OS_PROJECT_DOMAIN_NAME }}
+        run: |
+          terraform init
+          terraform apply -auto-approve
+          echo "ip=$(terraform output -raw instance_ip)" >> "$GITHUB_OUTPUT"
+
+      - name: Preparer cle SSH et mot de passe Vault
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > /tmp/vault-pass.txt
+
+      - name: Attendre que le SSH soit pret
+        run: |
+          for i in $(seq 1 30); do
+            if nc -z -w5 "${{ steps.tf.outputs.ip }}" 22; then echo "SSH pret"; exit 0; fi
+            echo "Attente SSH $i/30..."; sleep 10
+          done
+          echo "SSH injoignable"; exit 1
+
+      - name: Redeployer la version choisie (rollback)
+        working-directory: ./ansible
+        env:
+          OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+          OS_USERNAME: ${{ secrets.OS_USERNAME }}
+          OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+          OS_REGION_NAME: ${{ secrets.OS_REGION_NAME }}
+        run: |
+          ansible-playbook -i "${{ steps.tf.outputs.ip }}," playbook.yml \
+            --vault-password-file /tmp/vault-pass.txt \
+            --extra-vars "image_tag=${{ github.event.inputs.version }}"
+
+      - name: Nettoyer les fichiers sensibles
+        if: always()
+        run: rm -f ~/.ssh/id_rsa /tmp/vault-pass.txt
+
+      - name: Notifier Discord (rollback effectue)
+        if: success()
+        run: |
+          curl -H "Content-Type: application/json" \
+            -d '{"content": "**Rollback PROD effectue** : la production tourne maintenant sur la version `${{ github.event.inputs.version }}`."}' \
+            "${{ secrets.DISCORD_WEBHOOK_URL }}"
