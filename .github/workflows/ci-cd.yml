@@ -40,6 +40,8 @@ jobs:
           context: ./src
           push: true
           tags: ghcr.io/${{ github.repository }}:${{ steps.meta.outputs.tag }}
+          build-args: |
+            VERSION=${{ steps.meta.outputs.tag }}
 
       - name: Installer Terraform et Ansible
         run: |
@@ -192,6 +194,8 @@ jobs:
           context: ./src
           push: true
           tags: ghcr.io/${{ github.repository }}:${{ needs.release.outputs.version }}
+          build-args: |
+            VERSION=${{ needs.release.outputs.version }}
 
       - name: Installer Terraform et Ansible
         run: |
