@@ -43,6 +43,12 @@ $db_name = getenv('DB_NAME');
 $db_user = getenv('DB_USER');
 $db_pass = getenv('DB_PASS');
 
+// Version de l'application (injectee dans l'image au build par la CI/CD).
+// 'dev' par defaut si non definie (build local sans --build-arg).
+$app_version = getenv('APP_VERSION') ?: 'dev';
+// On detecte si c'est une version de preprod (contient "preprod")
+$is_preprod = str_contains($app_version, 'preprod');
+
 
 // =============================================================================
 // SECTION 2 — CONNEXION BASE DE DONNÉES
@@ -311,6 +317,30 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
         button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
         .stars { font-size: 1.2em; color: #f9c74f; margin-top: 20px; letter-spacing: 4px; }
+
+        /* Badge de version en bas de page */
+        .version-badge {
+            position: fixed;
+            bottom: 12px;
+            right: 12px;
+            font-family: 'Nunito', sans-serif;
+            font-weight: 700;
+            font-size: 0.8em;
+            padding: 6px 14px;
+            border-radius: 20px;
+            color: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            z-index: 1000;
+        }
+        /* Prod : badge sobre et discret */
+        .version-prod { background: rgba(67, 170, 139, 0.9); }
+        /* Preprod : badge orange voyant pour ne pas confondre avec la prod */
+        .version-preprod {
+            background: #f3722c;
+            border: 2px solid white;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
     </style>
 </head>
 <body>
@@ -526,6 +556,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
             }
         }
     </script>
+
+    <?php if ($is_preprod): ?>
+        <div class="version-badge version-preprod">PREPROD &middot; <?= htmlspecialchars($app_version) ?></div>
+    <?php else: ?>
+        <div class="version-badge version-prod">v<?= htmlspecialchars($app_version) ?></div>
+    <?php endif; ?>
 
 </body>
 </html>
