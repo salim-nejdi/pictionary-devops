@@ -163,8 +163,19 @@ jobs:
               --body "Smoke tests preprod valides."
           fi
 
-          # 3. Merger (preprod est maintenant a jour)
-          gh pr merge preprod --merge --delete-branch=false
+          # 3. Merger (preprod est maintenant a jour). GitHub met quelques secondes a
+          #    recalculer le statut "mergeable" apres le push : on attend + on retente.
+          sleep 15
+          for i in $(seq 1 6); do
+            if gh pr merge preprod --merge --delete-branch=false; then
+              echo "Merge reussi."
+              exit 0
+            fi
+            echo "Merge pas encore possible (statut en cours de recalcul), tentative $i/6..."
+            sleep 10
+          done
+          echo "Merge impossible apres plusieurs tentatives."
+          exit 1
 
   # ===========================================================================
   # JOB release : uniquement sur la branche main
