@@ -1,0 +1,11 @@
+# --- Version de K3s a installer (tag fixe pour la reproductibilite, pas de "latest") ---
+k3s_version: "v1.31.4+k3s1"
+
+# --- Namespace Kubernetes cible (doit correspondre aux manifestes k8s) ---
+k8s_namespace: "pictionary"
+
+# --- Chemin du kubeconfig genere par K3s sur la VM ---
+kubeconfig_path: "/etc/rancher/k3s/k3s.yaml"
+
+# --- Dossier ou seront copies les manifestes k8s sur la VM avant application ---
+manifests_remote_dir: "/tmp/pictionary-k8s"
