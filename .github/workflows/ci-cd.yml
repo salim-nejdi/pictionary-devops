@@ -23,6 +23,8 @@ jobs:
     steps:
       - name: Recuperer le code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # historique complet : necessaire pour merger preprod<->main
 
       - name: Definir le tag d'image (SHA court)
         id: meta
@@ -143,17 +145,25 @@ jobs:
         env:
           # PAT (et non GITHUB_TOKEN) : permet de merger ET de declencher le workflow release sur main
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          # Cree la PR si elle n'existe pas encore (sans masquer les vraies erreurs)
+          # 1. Mettre preprod a jour avec main (sinon GitHub refuse : "Head branch is out of date")
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
+          git fetch origin main preprod
+          git checkout preprod
+          git merge origin/main --no-edit || true   # integre les releases de main dans preprod
+          git push origin preprod
+
+          # 2. Creer la PR si besoin
           if ! gh pr view preprod --json number >/dev/null 2>&1; then
-            gh pr create \
-              --base main --head preprod \
+            gh pr create --base main --head preprod \
               --title "Promotion preprod -> main (smoke tests OK)" \
               --body "Smoke tests preprod valides."
-          else
-            echo "Une PR preprod -> main existe deja."
           fi
-          # Merge immediat (le ruleset n'exige qu'une PR, deja satisfaite)
+
+          # 3. Merger (preprod est maintenant a jour)
           gh pr merge preprod --merge --delete-branch=false
 
   # ===========================================================================
