@@ -130,17 +130,20 @@ jobs:
           curl -ks "https://$IP/?action=get_word" | grep -qi "mot\|word\|[a-zA-Z]" || { echo "Test 3 ECHEC : API muette"; exit 1; }
           echo "Test 3 OK : API + BDD fonctionnelles"
 
-      - name: Ouvrir automatiquement la PR preprod -> main
+      - name: Fusionner automatiquement preprod -> main (smoke tests OK)
         if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Cree la PR si elle n'existe pas deja. Le merge reste MANUEL (validation humaine).
-          gh pr create \
-            --base main --head preprod \
-            --title "Promotion preprod -> main (smoke tests OK)" \
-            --body "Les smoke tests preprod sont passes. PR ouverte automatiquement. Merge manuel requis pour declencher la mise en production." \
-            || echo "Une PR preprod -> main existe deja, rien a creer."
+          # Les smoke tests sont passes : on fusionne preprod dans main automatiquement.
+          # La seule validation humaine restante sera celle de l'environnement "production"
+          # (bouton Approve) au moment du deploiement prod.
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git fetch origin main preprod
+          git checkout main
+          git merge origin/preprod --no-edit
+          git push origin main
 
   # ===========================================================================
   # JOB release : uniquement sur la branche main
