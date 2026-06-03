@@ -1,3 +1,15 @@
+## [1.6.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.5.0...v1.6.0) (2026-06-03)
+
+### Features
+
+* **ci:** trigger pipeline only on app or infra changes ([769a777](https://github.com/salim-nejdi/pictionary-devops/commit/769a777e9afd489cb85ef1691ac6f3765d7659a2))
+
+### Bug Fixes
+
+* **php:** test version ([f08f4f1](https://github.com/salim-nejdi/pictionary-devops/commit/f08f4f1968271f871e843e232d609de1a133a25d))
+* **php:** test version ([7a50e6c](https://github.com/salim-nejdi/pictionary-devops/commit/7a50e6c23833d78a25ed691b79d7547836cb2226))
+* **php:** test version ([c6ea755](https://github.com/salim-nejdi/pictionary-devops/commit/c6ea7559be9929557913fde268864525b8f4dc8b))
+
 ## [1.5.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.4.0...v1.5.0) (2026-06-02)
 
 ### Features
