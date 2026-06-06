@@ -46,8 +46,6 @@ jobs:
           context: ./src
           push: true
           tags: ghcr.io/${{ github.repository }}:${{ steps.meta.outputs.tag }}
-          build-args: |
-            VERSION=${{ steps.meta.outputs.tag }}
 
   # ===========================================================================
   # 2. DEPLOY-PREPROD : Terraform (VM) + Ansible (K3s + app) en preproduction
@@ -112,7 +110,7 @@ jobs:
         run: |
           ansible-playbook -i "${{ steps.tf.outputs.ip }}," playbook.yml \
             --vault-password-file /tmp/vault-pass.txt \
-            --extra-vars "image_tag=${{ needs.build.outputs.sha_tag }}"
+            --extra-vars "image_ref=ghcr.io/${{ github.repository }}:${{ needs.build.outputs.sha_tag }} app_version=${{ needs.build.outputs.sha_tag }}"
 
       - name: Nettoyer les fichiers sensibles
         if: always()
@@ -151,11 +149,12 @@ jobs:
   # 4. RELEASE : semantic-release calcule la version, cree tag + release + changelog
   # ===========================================================================
   release:
-    needs: smoke-tests
+    needs: [build, smoke-tests]
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.semantic.outputs.version }}
       published: ${{ steps.semantic.outputs.published }}
+      sha_tag: ${{ needs.build.outputs.sha_tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -217,14 +216,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build et push image versionnee (SemVer)
-        uses: docker/build-push-action@v6
-        with:
-          context: ./src
-          push: true
-          tags: ghcr.io/${{ github.repository }}:${{ needs.release.outputs.version }}
-          build-args: |
-            VERSION=${{ needs.release.outputs.version }}
+      - name: Promouvoir l'image preprod testee en image versionnee (sans recompiler)
+        # Immuabilite : on ne rebuild PAS. On retague l'image EXACTE validee par les smoke-tests.
+        env:
+          REPO: ghcr.io/${{ github.repository }}
+          SRC: ${{ needs.release.outputs.sha_tag }}        # tag preprod teste
+          DST: ${{ needs.release.outputs.version }}          # nouveau tag SemVer
+        run: |
+          docker pull "$REPO:$SRC"
+          docker tag "$REPO:$SRC" "$REPO:$DST"
+          docker push "$REPO:$DST"
+          echo "Image promue : $REPO:$SRC -> $REPO:$DST (identique, non recompilee)"
 
       - name: Installer Terraform et Ansible
         run: |
@@ -277,7 +279,7 @@ jobs:
         run: |
           ansible-playbook -i "${{ steps.tf.outputs.ip }}," playbook.yml \
             --vault-password-file /tmp/vault-pass.txt \
-            --extra-vars "image_tag=${{ needs.release.outputs.version }}"
+            --extra-vars "image_ref=ghcr.io/${{ github.repository }}:${{ needs.release.outputs.version }} app_version=${{ needs.release.outputs.version }}"
 
       - name: Nettoyer les fichiers sensibles
         if: always()
