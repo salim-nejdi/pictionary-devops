@@ -24,13 +24,15 @@ spec:
     spec:
       containers:
         - name: web
-          # __IMAGE_TAG__ : placeholder remplace par la CI/CD (SHA en preprod, SemVer en prod).
-          # Jamais "latest" : tag immuable = version connue + rollback fiable.
-          image: ghcr.io/salim-nejdi/pictionary-devops:__IMAGE_TAG__
+          # __IMAGE_REF__ : image immuable testee en preprod, promue telle quelle en prod.
+          # La VERSION affichee n'est PAS dans l'image : elle est injectee au runtime (APP_VERSION).
+          image: __IMAGE_REF__
           ports:
             - containerPort: 80
           # DB_HOST = nom du Service MariaDB (DNS interne). Credentials via Secret.
           env:
+            - name: APP_VERSION
+              value: "__APP_VERSION__"   # injectee au deploiement : SHA en preprod, SemVer en prod
             - name: DB_HOST
               value: pictionary-db-service
             - name: DB_NAME

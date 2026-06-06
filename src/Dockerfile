@@ -14,11 +14,8 @@ LABEL maintainer="salim-nejdi" \
       org.opencontainers.image.source="https://github.com/salim-nejdi/pictionary-devops" \
       org.opencontainers.image.description="Application web Pictionary"
 
-# ARG = valeur fournie au moment du build (par la CI/CD via --build-arg).
-# ENV = rend cette valeur disponible comme variable d'environnement DANS le conteneur,
-#       lisible par PHP via getenv('APP_VERSION').
-ARG VERSION=dev
-ENV APP_VERSION=${VERSION}
+# La version n'est PAS gravee dans l'image (immuabilite) : elle est injectee
+# au runtime par Kubernetes via la variable d'environnement APP_VERSION.
 
 COPY --from=builder /usr/local/lib/php/extensions/ /usr/local/lib/php/extensions/
 COPY --from=builder /usr/local/etc/php/conf.d/     /usr/local/etc/php/conf.d/
