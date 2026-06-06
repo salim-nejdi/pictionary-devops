@@ -1,3 +1,10 @@
+## [1.6.3](https://github.com/salim-nejdi/pictionary-devops/compare/v1.6.2...v1.6.3) (2026-06-06)
+
+### Bug Fixes
+
+* **ci:** promote tested image to prod without rebuild (artifact immutability 2) ([c72448a](https://github.com/salim-nejdi/pictionary-devops/commit/c72448a175cebc01adf5addfb05d748513e6f8ed))
+* **ci:** promote tested image to prod without rebuild (artifact immutability) ([752dae6](https://github.com/salim-nejdi/pictionary-devops/commit/752dae61ed2e31082078ad8c9d1bf132af8a2501))
+
 ## [1.6.2](https://github.com/salim-nejdi/pictionary-devops/compare/v1.6.1...v1.6.2) (2026-06-06)
 
 ### Bug Fixes
