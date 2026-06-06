@@ -1,3 +1,10 @@
+# group_vars/all/vars.yml — Variables NON sensibles, appliquees a tous les hotes.
+# Chargees automatiquement par Ansible pour le groupe "all" (tous les hotes en font
+# partie), quelle que soit la facon dont l'inventaire est fourni (-i fichier ou -i "IP,").
+#
+# Les SECRETS (mots de passe DB) ne sont PAS ici : ils sont injectes par le workflow
+# GitHub via des variables d'environnement, lues avec lookup('env', ...) dans le role deploy.
+
 # --- Version de K3s a installer (tag fixe pour la reproductibilite, pas de "latest") ---
 k3s_version: "v1.31.4+k3s1"
 
@@ -9,3 +16,7 @@ kubeconfig_path: "/etc/rancher/k3s/k3s.yaml"
 
 # --- Dossier ou seront copies les manifestes k8s sur la VM avant application ---
 manifests_remote_dir: "/tmp/pictionary-k8s"
+
+# --- Supervision (Prometheus + Grafana + Loki) ---
+grafana_nodeport: 30080
+prometheus_retention: "3d"

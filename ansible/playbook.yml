@@ -1,4 +1,8 @@
+# playbook.yml — Orchestrateur principal.
 # Lance dans l'ordre : installation de K3s, puis deploiement de l'application.
+#
+# Lancement local :
+#   ansible-playbook -i inventory.ini playbook.yml --ask-vault-pass
 # Lancement CI/CD (option 3, IP passee dynamiquement) :
 #   ansible-playbook -i "$IP," playbook.yml \
 #     --vault-password-file vault-pass.txt \
@@ -12,3 +16,4 @@
   roles:
     - k3s                       # 1. installe et demarre K3s
     - deploy                    # 2. cree le Secret + applique les manifestes
+    - monitoring                # 3. deploie Prometheus + Grafana + Loki + Promtail
