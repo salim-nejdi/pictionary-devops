@@ -1,3 +1,9 @@
+## [1.6.4](https://github.com/salim-nejdi/pictionary-devops/compare/v1.6.3...v1.6.4) (2026-06-06)
+
+### Bug Fixes
+
+* **ci:** new pipeline ([3f43afb](https://github.com/salim-nejdi/pictionary-devops/commit/3f43afbe5230760cf388738727fd8527d7b89a15))
+
 ## [1.6.3](https://github.com/salim-nejdi/pictionary-devops/compare/v1.6.2...v1.6.3) (2026-06-06)
 
 ### Bug Fixes
