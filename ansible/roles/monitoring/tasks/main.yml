@@ -1,0 +1,187 @@
+# roles/monitoring/tasks/main.yml — Installation de la stack de supervision.
+# Briques : Prometheus + Grafana (kube-prometheus-stack), Loki + Promtail (logs),
+# Datasource Loki, dashboards custom injectes via ConfigMap.
+# Tout est deploye dans le namespace "monitoring" via Helm.
+
+# -----------------------------------------------
+# Prerequis : Helm (gestionnaire de packages K8s)
+# -----------------------------------------------
+- name: Verifier si Helm est installe
+  ansible.builtin.command: helm version --short
+  register: helm_check
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: Installer Helm
+  when: helm_check.rc != 0
+  ansible.builtin.shell: |
+    curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  args:
+    creates: /usr/local/bin/helm
+  become: true
+
+# -----------------------------------------------
+# Repos Helm
+# -----------------------------------------------
+- name: Ajouter le repo Helm prometheus-community
+  ansible.builtin.command: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+  register: repo_prom
+  changed_when: "'has been added' in repo_prom.stdout"
+  failed_when: false
+  become: true
+
+- name: Ajouter le repo Helm grafana (Loki/Promtail)
+  ansible.builtin.command: helm repo add grafana https://grafana.github.io/helm-charts
+  register: repo_grafana
+  changed_when: "'has been added' in repo_grafana.stdout"
+  failed_when: false
+  become: true
+
+- name: Mettre a jour les repos Helm
+  ansible.builtin.command: helm repo update
+  changed_when: false
+  become: true
+
+# -----------------------------------------------
+# Prometheus + Grafana (kube-prometheus-stack)
+# -----------------------------------------------
+- name: Deployer kube-prometheus-stack (Prometheus + Grafana)
+  ansible.builtin.shell: |
+    helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+      --namespace monitoring --create-namespace \
+      --set grafana.adminPassword='{{ vault_grafana_password }}' \
+      --set grafana.service.type=NodePort \
+      --set grafana.service.nodePort={{ grafana_nodeport }} \
+      --set prometheus.prometheusSpec.retention={{ prometheus_retention }} \
+      --set prometheus.prometheusSpec.resources.requests.memory=256Mi \
+      --set prometheus.prometheusSpec.resources.limits.memory=512Mi \
+      --wait --timeout 300s
+  register: monitoring_install
+  changed_when: "'has been upgraded' in monitoring_install.stdout or 'Installing it now' in monitoring_install.stdout"
+  become: true
+  no_log: true
+
+# -----------------------------------------------
+# Loki (aggregation des logs)
+# -----------------------------------------------
+- name: Deployer Loki en mode single-binary
+  ansible.builtin.shell: |
+    helm upgrade --install loki grafana/loki \
+      --namespace monitoring --create-namespace \
+      --set deploymentMode=SingleBinary \
+      --set loki.auth_enabled=false \
+      --set loki.commonConfig.replication_factor=1 \
+      --set loki.storage.type=filesystem \
+      --set loki.schemaConfig.configs[0].from="2024-01-01" \
+      --set loki.schemaConfig.configs[0].store=tsdb \
+      --set loki.schemaConfig.configs[0].object_store=filesystem \
+      --set loki.schemaConfig.configs[0].schema=v13 \
+      --set loki.schemaConfig.configs[0].index.prefix=loki_index_ \
+      --set loki.schemaConfig.configs[0].index.period=24h \
+      --set singleBinary.replicas=1 \
+      --set read.replicas=0 \
+      --set write.replicas=0 \
+      --set backend.replicas=0 \
+      --set monitoring.selfMonitoring.enabled=false \
+      --set monitoring.lokiCanary.enabled=false \
+      --set test.enabled=false \
+      --set gateway.enabled=false \
+      --wait --timeout 300s
+  register: loki_install
+  changed_when: "'has been upgraded' in loki_install.stdout or 'Installing it now' in loki_install.stdout"
+  become: true
+
+- name: Attendre que Loki soit pret
+  ansible.builtin.shell: |
+    k3s kubectl rollout status statefulset/loki \
+      -n monitoring --timeout=120s
+  become: true
+  register: loki_status
+  changed_when: false
+
+# -----------------------------------------------
+# Promtail (collecte des logs de tous les pods)
+# -----------------------------------------------
+- name: Deployer Promtail (agent de collecte des logs)
+  ansible.builtin.shell: |
+    helm upgrade --install promtail grafana/promtail \
+      --namespace monitoring \
+      --set config.clients[0].url=http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push \
+      --wait --timeout 120s
+  register: promtail_install
+  changed_when: "'has been upgraded' in promtail_install.stdout or 'Installing it now' in promtail_install.stdout"
+  become: true
+
+# -----------------------------------------------
+# Datasource Loki dans Grafana (detectee automatiquement via label)
+# -----------------------------------------------
+- name: Creer la datasource Loki pour Grafana
+  ansible.builtin.shell: |
+    cat <<'DSEOF' | k3s kubectl apply -f -
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: loki-datasource
+      namespace: monitoring
+      labels:
+        grafana_datasource: "1"
+    data:
+      loki-datasource.yaml: |
+        apiVersion: 1
+        datasources:
+          - name: Loki
+            type: loki
+            access: proxy
+            url: http://loki.monitoring.svc.cluster.local:3100
+            isDefault: false
+    DSEOF
+  become: true
+  changed_when: true
+
+# -----------------------------------------------
+# Dashboards custom (injectes via ConfigMap + label sidecar)
+# -----------------------------------------------
+- name: Creer le dossier des dashboards sur la VM
+  ansible.builtin.file:
+    path: /opt/monitoring/dashboards
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Copier les dashboards JSON vers la VM
+  ansible.builtin.copy:
+    src: files/dashboards/
+    dest: /opt/monitoring/dashboards/
+    mode: "0644"
+  become: true
+
+- name: Injecter les dashboards dans Kubernetes via ConfigMap
+  ansible.builtin.shell: |
+    k3s kubectl create configmap grafana-custom-dashboards \
+      --namespace monitoring \
+      --from-file=/opt/monitoring/dashboards/ \
+      --dry-run=client -o yaml | k3s kubectl apply -f -
+  become: true
+  changed_when: true
+
+- name: Labelliser la ConfigMap pour le sidecar Grafana
+  ansible.builtin.shell: |
+    k3s kubectl label configmap grafana-custom-dashboards \
+      --namespace monitoring \
+      grafana_dashboard="1" --overwrite
+  become: true
+  changed_when: true
+
+# -----------------------------------------------
+# Affichage des acces
+# -----------------------------------------------
+- name: Afficher les informations d'acces
+  ansible.builtin.debug:
+    msg: |
+      === Stack de supervision deployee ===
+      Grafana     : https://{{ ansible_host }}:{{ grafana_nodeport }}
+      Prometheus  : integre (accessible via Grafana)
+      Loki        : collecte des logs active (datasource Grafana)
+      Promtail    : collecte automatique des logs de tous les pods
+      Dashboards  : 2 dashboards custom injectes (app + logs)
