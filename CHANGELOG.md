@@ -1,3 +1,10 @@
+## [1.6.2](https://github.com/salim-nejdi/pictionary-devops/compare/v1.6.1...v1.6.2) (2026-06-06)
+
+### Bug Fixes
+
+* **php:** fix code ([3004f5e](https://github.com/salim-nejdi/pictionary-devops/commit/3004f5e1247cc81ce891f4d1b95c67a8272bff3e))
+* **php:** fix code bis ([83f3969](https://github.com/salim-nejdi/pictionary-devops/commit/83f3969010d38b3138fe7fa5c79a04f9d9fc8aaa))
+
 ## [1.6.1](https://github.com/salim-nejdi/pictionary-devops/compare/v1.6.0...v1.6.1) (2026-06-03)
 
 ### Bug Fixes
