@@ -60,7 +60,7 @@
   register: monitoring_install
   changed_when: "'has been upgraded' in monitoring_install.stdout or 'Installing it now' in monitoring_install.stdout"
   become: true
-  no_log: true
+  no_log: false
 
 # -----------------------------------------------
 # Loki (aggregation des logs)
