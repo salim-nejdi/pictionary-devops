@@ -86,5 +86,5 @@ jobs:
         if: success()
         run: |
           curl -H "Content-Type: application/json" \
-            -d '{"content": "**Rollback PROD effectue** : la production tourne maintenant sur la version `${{ github.event.inputs.version }}`."}' \
+            -d '{"content": "**Rollback PROD effectue** : ⚠️ Production en état dégradé : rollback manuel vers ${{ github.event.inputs.version }}. La prod a divergé de main (HEAD). Un correctif doit être mergé sur main pour réaligner létat déclaré et restaurer le flux de déploiement nominal."}' \
             "${{ secrets.DISCORD_WEBHOOK_URL }}"

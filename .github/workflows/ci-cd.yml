@@ -5,7 +5,7 @@ name: CI/CD Pictionary
 on:
   push:
     branches:
-      - preprod
+      - main
     paths:
       # Le pipeline ne se declenche QUE si le code applicatif ou l'infra change.
       # Une modif du bot Discord, des workflows ou de la doc ne declenche rien.
