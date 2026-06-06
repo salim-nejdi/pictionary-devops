@@ -1,3 +1,6 @@
+# roles/deploy/tasks/main.yml — Deploiement de l'application sur K3s.
+# Copie les manifestes, cree le Secret depuis le Vault, applique le tout.
+
 - name: Creer le dossier des manifestes sur la VM
   ansible.builtin.file:
     path: "{{ manifests_remote_dir }}"
@@ -6,6 +9,8 @@
   become: true
 
 - name: Copier les manifestes K8s sur la VM
+  # Les manifestes (00-namespace, 02-mariadb, 03-web, 04-ingress) sont copies
+  # depuis le repo vers la VM. On exclut le 01-secret.example (cree dynamiquement ci-dessous).
   ansible.builtin.copy:
     src: "{{ item }}"
     dest: "{{ manifests_remote_dir }}/"
@@ -22,6 +27,8 @@
   become: true
 
 - name: Creer/mettre a jour le Secret K8s depuis les valeurs du Vault
+  # On genere le Secret via kubectl plutot que via un fichier YAML, pour ne jamais
+  # ecrire les valeurs en clair sur le disque. --dry-run + apply = idempotent.
   ansible.builtin.shell: |
     k3s kubectl create secret generic pictionary-db-secret \
       --namespace {{ k8s_namespace }} \
@@ -33,12 +40,20 @@
   become: true
   no_log: true                    # ne PAS afficher les secrets dans les logs
 
-- name: Injecter le tag d'image dans le manifeste web
-  # Remplace le placeholder __IMAGE_TAG__ par la vraie version passee par la CI/CD.
+- name: Injecter la reference d'image immuable dans le manifeste web
+  # __IMAGE_REF__ = image complete testee en preprod, promue telle quelle (jamais recompilee).
   ansible.builtin.replace:
     path: "{{ manifests_remote_dir }}/03-web.yaml"
-    regexp: '__IMAGE_TAG__'
-    replace: "{{ image_tag | default('latest') }}"
+    regexp: '__IMAGE_REF__'
+    replace: "{{ image_ref }}"
+  become: true
+
+- name: Injecter la version affichee (runtime) dans le manifeste web
+  # __APP_VERSION__ = version lisible affichee par le badge, independante de l'image.
+  ansible.builtin.replace:
+    path: "{{ manifests_remote_dir }}/03-web.yaml"
+    regexp: '__APP_VERSION__'
+    replace: "{{ app_version | default('dev') }}"
   become: true
 
 - name: Appliquer les manifestes applicatifs (mariadb, web, ingress)
