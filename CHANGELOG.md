@@ -1,3 +1,9 @@
+## [1.11.1](https://github.com/salim-nejdi/pictionary-devops/compare/v1.11.0...v1.11.1) (2026-06-07)
+
+### Bug Fixes
+
+* **monitoring:** add app label to web service for ServiceMonitor ([c5c0e63](https://github.com/salim-nejdi/pictionary-devops/commit/c5c0e63844c8902d35cfc8152a330de2490c9428))
+
 ## [1.11.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.10.0...v1.11.0) (2026-06-07)
 
 ### Features
