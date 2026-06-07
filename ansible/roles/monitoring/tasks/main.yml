@@ -79,6 +79,7 @@
   ansible.builtin.shell: |
     helm upgrade --install loki grafana/loki \
       --namespace monitoring --create-namespace \
+      --set deploymentMode=SingleBinary \
       --set loki.auth_enabled=false \
       --set loki.commonConfig.replication_factor=1 \
       --set loki.storage.type=filesystem \
@@ -92,18 +93,18 @@
       --set read.replicas=0 \
       --set write.replicas=0 \
       --set backend.replicas=0 \
-      --set gateway.enabled=false \
-      --set monitoring.selfMonitoring.enabled=false \
-      --set monitoring.lokiCanary.enabled=false \
-      --set test.enabled=false \
       --set chunksCache.enabled=false \
       --set resultsCache.enabled=false \
+      --set lokiCanary.enabled=false \
+      --set test.enabled=false \
+      --set gateway.enabled=false \
       --timeout 300s
   register: loki_install
   changed_when: "'has been upgraded' in loki_install.stdout or 'Installing it now' in loki_install.stdout"
   become: true
   environment:
     KUBECONFIG: "{{ kubeconfig_path }}"
+
 # -----------------------------------------------
 # Promtail (collecte des logs de tous les pods)
 # -----------------------------------------------
