@@ -1,3 +1,9 @@
+## [1.8.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.7.2...v1.8.0) (2026-06-07)
+
+### Features
+
+* **monitoring:** add app metrics ([9021a1f](https://github.com/salim-nejdi/pictionary-devops/commit/9021a1fb12890ab7b025b20baac50d85629e1cef))
+
 ## [1.7.2](https://github.com/salim-nejdi/pictionary-devops/compare/v1.7.1...v1.7.2) (2026-06-07)
 
 ### Bug Fixes
