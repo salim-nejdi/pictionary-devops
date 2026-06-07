@@ -1,3 +1,9 @@
+## [1.9.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.8.0...v1.9.0) (2026-06-07)
+
+### Features
+
+* **monitoring:** add app metrics bis ([c5b118d](https://github.com/salim-nejdi/pictionary-devops/commit/c5b118d6621e2c63c43950e30b883caa616138b8))
+
 ## [1.8.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.7.2...v1.8.0) (2026-06-07)
 
 ### Features
