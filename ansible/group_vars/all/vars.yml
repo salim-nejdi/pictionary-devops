@@ -20,3 +20,10 @@ manifests_remote_dir: "/tmp/pictionary-k8s"
 # --- Supervision (Prometheus + Grafana + Loki) ---
 grafana_nodeport: 30080
 prometheus_retention: "3d"
+
+# --- Alerting (seuils et duree avant declenchement) ---
+# Duree pendant laquelle la condition doit tenir avant d'alerter.
+# Mise a 1m pour faciliter les tests/demo (en prod reelle on mettrait 5m).
+alert_for_duration: "1m"
+alert_cpu_threshold: "0.8"      # 80% de la limite CPU du pod
+alert_memory_threshold: "0.9"   # 90% de la limite memoire du pod

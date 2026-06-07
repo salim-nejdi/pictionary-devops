@@ -1,0 +1,33 @@
+# alertmanager-values.yaml — Surcharge Helm pour configurer Alertmanager.
+# Genere par Ansible (template) avec les secrets du Vault + le webhook Discord.
+# Passe a kube-prometheus-stack via "helm upgrade -f".
+alertmanager:
+  config:
+    global:
+      resolve_timeout: 5m
+      # SMTP Gmail (mot de passe d'application, jamais le vrai mot de passe)
+      smtp_smarthost: "smtp.gmail.com:587"
+      smtp_from: "{{ vault_smtp_from }}"
+      smtp_auth_username: "{{ vault_smtp_from }}"
+      smtp_auth_password: "{{ vault_smtp_password }}"
+      smtp_require_tls: true
+    route:
+      group_by: ["alertname"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 1h
+      receiver: "notifications"
+    receivers:
+      - name: "notifications"
+        # --- Canal 1 : Email ---
+        email_configs:
+          - to: "{{ vault_alert_email_to }}"
+            send_resolved: true
+        # --- Canal 2 : Discord (via le endpoint /slack compatible Slack) ---
+        slack_configs:
+          - api_url: "{{ discord_webhook_url }}/slack"
+            channel: "alerts"
+            send_resolved: true
+{% raw %}            title: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+            text: "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}"
+{% endraw %}

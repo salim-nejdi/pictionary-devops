@@ -1,0 +1,60 @@
+# prometheus-rules.yaml — Regles d'alerte Prometheus (PrometheusRule CRD).
+# Le label "release: monitoring" permet a Prometheus de les charger automatiquement.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: pictionary-alerts
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: pictionary.rules
+      rules:
+        # 1. Base de donnees injoignable (metrique applicative)
+        - alert: PictionaryDbDown
+          expr: max(pictionary_db_up) == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Base de donnees Pictionary injoignable"
+            description: "L'application ne parvient plus a joindre MariaDB depuis 2 minutes."
+
+        # 2. Aucun pod web disponible
+        - alert: PictionaryPodDown
+          expr: kube_deployment_status_replicas_available{namespace="pictionary", deployment="pictionary-web"} < 1
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Aucun pod web Pictionary disponible"
+            description: "Le deploiement pictionary-web n'a aucune replica disponible depuis 2 minutes."
+
+        # 3. Memoire elevee (% de la limite du pod)
+        - alert: PictionaryHighMemory
+          expr: >
+            max(container_memory_working_set_bytes{namespace="pictionary", container="web"})
+            /
+            max(kube_pod_container_resource_limits{namespace="pictionary", container="web", resource="memory"})
+            > {{ alert_memory_threshold }}
+          for: {{ alert_for_duration }}
+          labels:
+            severity: warning
+          annotations:
+            summary: "Memoire elevee sur les pods Pictionary"
+            description: "La memoire d'un pod web depasse {{ alert_memory_threshold }} de sa limite."
+
+        # 4. CPU eleve (% de la limite du pod)
+        - alert: PictionaryHighCpu
+          expr: >
+            max(rate(container_cpu_usage_seconds_total{namespace="pictionary", container="web"}[2m]))
+            /
+            max(kube_pod_container_resource_limits{namespace="pictionary", container="web", resource="cpu"})
+            > {{ alert_cpu_threshold }}
+          for: {{ alert_for_duration }}
+          labels:
+            severity: warning
+          annotations:
+            summary: "CPU eleve sur les pods Pictionary"
+            description: "Le CPU d'un pod web depasse {{ alert_cpu_threshold }} de sa limite."
