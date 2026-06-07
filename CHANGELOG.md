@@ -1,3 +1,9 @@
+## [1.11.4](https://github.com/salim-nejdi/pictionary-devops/compare/v1.11.3...v1.11.4) (2026-06-07)
+
+### Bug Fixes
+
+* **monitoring:** alerting ([1861fa7](https://github.com/salim-nejdi/pictionary-devops/commit/1861fa7b0139914c23c135882ee9325f1dd08142))
+
 ## [1.11.3](https://github.com/salim-nejdi/pictionary-devops/compare/v1.11.2...v1.11.3) (2026-06-07)
 
 ### Bug Fixes
