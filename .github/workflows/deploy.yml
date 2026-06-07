@@ -115,3 +115,23 @@ jobs:
               }]
             }' \
             "${{ secrets.DISCORD_WEBHOOK_DEPLOY }}"
+
+
+      - name: Notifier #deploy (echec deploiement a la demande)
+        if: failure()
+        run: |
+          curl -H "Content-Type: application/json" \
+            -d '{
+              "embeds": [{
+                "title": "Echec du deploiement a la demande",
+                "description": "Le deploiement manuel a echoue.",
+                "color": 15158332,
+                "fields": [
+                  {"name": "Version", "value": "`${{ github.event.inputs.version }}`", "inline": true},
+                  {"name": "Environnement", "value": "`${{ github.event.inputs.environment }}`", "inline": true},
+                  {"name": "Details", "value": "[Voir le run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"}
+                ],
+                "footer": {"text": "Pictionary - Deploy"}
+              }]
+            }' \
+            "${{ secrets.DISCORD_WEBHOOK_DEPLOY }}"

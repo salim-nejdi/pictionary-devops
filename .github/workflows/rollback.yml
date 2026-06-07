@@ -67,7 +67,7 @@ jobs:
         run: |
           ansible-playbook -i "${{ steps.tf.outputs.ip }}," playbook.yml \
             --vault-password-file /tmp/vault-pass.txt \
-            --extra-vars "image_tag=${{ github.event.inputs.version }}"
+            --extra-vars "image_ref=ghcr.io/${{ github.repository }}:${{ github.event.inputs.version }} app_version=${{ github.event.inputs.version }}"
       - name: Nettoyer les fichiers sensibles
         if: always()
         run: rm -f ~/.ssh/id_rsa /tmp/vault-pass.txt
@@ -84,6 +84,25 @@ jobs:
                   {"name": "Version restauree", "value": "`${{ github.event.inputs.version }}`", "inline": true},
                   {"name": "Environnement", "value": "production", "inline": true},
                   {"name": "Acces", "value": "http://${{ steps.tf.outputs.ip }}"}
+                ],
+                "footer": {"text": "Pictionary - Rollback"}
+              }]
+            }' \
+            "${{ secrets.DISCORD_WEBHOOK_ROLLBACK }}"
+
+
+      - name: Notifier #rollback (echec rollback)
+        if: failure()
+        run: |
+          curl -H "Content-Type: application/json" \
+            -d '{
+              "embeds": [{
+                "title": "Echec du rollback PRODUCTION",
+                "description": "Le rollback a echoue. Verifiez l etat de la production.",
+                "color": 15158332,
+                "fields": [
+                  {"name": "Version visee", "value": "`${{ github.event.inputs.version }}`", "inline": true},
+                  {"name": "Details", "value": "[Voir le run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"}
                 ],
                 "footer": {"text": "Pictionary - Rollback"}
               }]

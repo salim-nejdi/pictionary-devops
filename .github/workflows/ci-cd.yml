@@ -121,7 +121,7 @@ jobs:
   #    -> Notifie #ci-builds (vert si succes, rouge si echec)
   # ===========================================================================
   smoke-tests:
-    needs: deploy-preprod
+    needs: [deploy-preprod, build]
     runs-on: ubuntu-latest
     steps:
       - name: Tests sur la preprod
@@ -357,6 +357,7 @@ jobs:
       - name: Notifier #versions (version actuelle en prod)
         if: success()
         run: |
+          TS=$(date +%s)
           curl -H "Content-Type: application/json" \
             -d '{
               "embeds": [{
@@ -365,9 +366,28 @@ jobs:
                 "color": 3447003,
                 "fields": [
                   {"name": "Version actuelle", "value": "`${{ needs.release.outputs.version }}`", "inline": true},
-                  {"name": "Mise a jour le", "value": "<t:0:R>", "inline": true}
+                  {"name": "Mise a jour", "value": "<t:'"$TS"':R>", "inline": true}
                 ],
                 "footer": {"text": "Pictionary - Suivi de version"}
               }]
             }' \
             "${{ secrets.DISCORD_WEBHOOK_VERSIONS }}"
+
+
+      - name: Notifier #deploiements (echec deploiement prod)
+        if: failure()
+        run: |
+          curl -H "Content-Type: application/json" \
+            -d '{
+              "embeds": [{
+                "title": "Echec du deploiement PRODUCTION",
+                "description": "Le deploiement en production a echoue. La version precedente reste en place.",
+                "color": 15158332,
+                "fields": [
+                  {"name": "Version visee", "value": "`${{ needs.release.outputs.version }}`", "inline": true},
+                  {"name": "Details", "value": "[Voir le run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"}
+                ],
+                "footer": {"text": "Pictionary CI/CD"}
+              }]
+            }' \
+            "${{ secrets.DISCORD_WEBHOOK_DEPLOIEMENTS }}"
