@@ -5,7 +5,7 @@ name: CI/CD Pictionary
 on:
   push:
     branches:
-      - main
+      - preprod
     paths:
       # Le pipeline ne se declenche QUE si le code applicatif ou l'infra change.
       # Une modif du bot Discord, des workflows ou de la doc ne declenche rien.
@@ -279,7 +279,7 @@ jobs:
         run: |
           ansible-playbook -i "${{ steps.tf.outputs.ip }}," playbook.yml \
             --vault-password-file /tmp/vault-pass.txt \
-            --extra-vars "image_ref=ghcr.io/${{ github.repository }}:${{ needs.release.outputs.version }} app_version=${{ needs.release.outputs.version }} enable_monitoring=true"
+            --extra-vars "image_ref=ghcr.io/${{ github.repository }}:${{ needs.release.outputs.version }} app_version=${{ needs.release.outputs.version }} enable_monitoring=true discord_webhook_url=${{ secrets.DISCORD_WEBHOOK_URL }}"
 
       - name: Nettoyer les fichiers sensibles
         if: always()

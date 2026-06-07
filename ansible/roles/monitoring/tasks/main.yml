@@ -52,6 +52,18 @@
     KUBECONFIG: "{{ kubeconfig_path }}"
 
 # -----------------------------------------------
+# config Alertmanager
+# -----------------------------------------------
+- name: Generer la configuration Alertmanager (mail + Discord)
+  ansible.builtin.template:
+    src: alertmanager-values.yaml.j2
+    dest: /tmp/alertmanager-values.yaml
+    mode: "0600"
+  become: true
+  no_log: true
+
+
+# -----------------------------------------------
 # Prometheus + Grafana (kube-prometheus-stack)
 # -----------------------------------------------
 - name: Deployer kube-prometheus-stack (Prometheus + Grafana)
@@ -64,6 +76,7 @@
       --set prometheus.prometheusSpec.retention={{ prometheus_retention }} \
       --set prometheus.prometheusSpec.resources.requests.memory=256Mi \
       --set prometheus.prometheusSpec.resources.limits.memory=512Mi \
+      -f /tmp/alertmanager-values.yaml \
       --wait --timeout 300s
   register: monitoring_install
   changed_when: "'has been upgraded' in monitoring_install.stdout or 'Installing it now' in monitoring_install.stdout"
@@ -219,6 +232,23 @@
     k3s kubectl label configmap grafana-custom-dashboards \
       --namespace monitoring \
       grafana_dashboard="1" --overwrite
+  become: true
+  changed_when: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# -----------------------------------------------
+# Règles d'alerte
+# -----------------------------------------------
+- name: Generer le fichier des regles d'alerte
+  ansible.builtin.template:
+    src: prometheus-rules.yaml.j2
+    dest: /tmp/prometheus-rules.yaml
+    mode: "0644"
+  become: true
+
+- name: Appliquer les regles d'alerte
+  ansible.builtin.shell: k3s kubectl apply -f /tmp/prometheus-rules.yaml
   become: true
   changed_when: true
   environment:
