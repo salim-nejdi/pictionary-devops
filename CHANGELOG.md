@@ -1,3 +1,18 @@
+## [1.7.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.6.4...v1.7.0) (2026-06-07)
+
+### Features
+
+* **sup:** add supervision stack ([dddea7a](https://github.com/salim-nejdi/pictionary-devops/commit/dddea7a406a45a490b5f197eacc952ac336fd997))
+
+### Bug Fixes
+
+* **ci:** add supervision V2 ([3b0b059](https://github.com/salim-nejdi/pictionary-devops/commit/3b0b05926537a82df73e9dc9d6711910659e1631))
+* **monitoring:** add dashboards ([e54b590](https://github.com/salim-nejdi/pictionary-devops/commit/e54b590948547bc71fc6ae06ef5bcfb8b61f7fda))
+* **monitoring:** add Kubconfig environment ([f810740](https://github.com/salim-nejdi/pictionary-devops/commit/f810740964c371fbd13789dd585171196fb1cc9b))
+* **monitoring:** add Kubconfig environment2 ([cbad94c](https://github.com/salim-nejdi/pictionary-devops/commit/cbad94c550b0824112ef83522d3c52fc798ee272))
+* **monitoring:** add Kubconfig environment3 ([f6c3ad9](https://github.com/salim-nejdi/pictionary-devops/commit/f6c3ad9afec8a713d7fa991d3d68dd36b8edab82))
+* **monitoring:** add Kubconfig environment4 ([daafacf](https://github.com/salim-nejdi/pictionary-devops/commit/daafacf54bc37dbd782aded8c75e75249ce384ed))
+
 ## [1.6.4](https://github.com/salim-nejdi/pictionary-devops/compare/v1.6.3...v1.6.4) (2026-06-06)
 
 ### Bug Fixes
