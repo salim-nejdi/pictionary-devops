@@ -1,3 +1,13 @@
+## [1.13.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.12.0...v1.13.0) (2026-06-07)
+
+### Features
+
+* **ci:** PR notification ([8fa1e74](https://github.com/salim-nejdi/pictionary-devops/commit/8fa1e747535251fefde72e0c444d3d81a78689bd))
+
+### Bug Fixes
+
+* **ci:** add bot ([d30f543](https://github.com/salim-nejdi/pictionary-devops/commit/d30f543825f46e47d16f400131452989782f869b))
+
 ## [1.12.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.11.4...v1.12.0) (2026-06-07)
 
 ### Features
