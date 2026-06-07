@@ -73,18 +73,43 @@
     KUBECONFIG: "{{ kubeconfig_path }}"
 
 # -----------------------------------------------
-# Loki + Promtail (loki-stack : chart leger tout-en-un)
+# Loki (aggregation des logs) — config minimale pour cluster mono-noeud
 # -----------------------------------------------
-- name: Deployer loki-stack (Loki + Promtail en un seul chart)
+- name: Deployer Loki (config legere mono-noeud)
   ansible.builtin.shell: |
-    helm upgrade --install loki grafana/loki-stack \
+    helm upgrade --install loki grafana/loki \
       --namespace monitoring --create-namespace \
       --set loki.auth_enabled=false \
-      --set loki.persistence.enabled=false \
-      --set promtail.enabled=true \
-      --wait --timeout 180s
+      --set loki.commonConfig.replication_factor=1 \
+      --set loki.storage.type=filesystem \
+      --set singleBinary.replicas=1 \
+      --set read.replicas=0 \
+      --set write.replicas=0 \
+      --set backend.replicas=0 \
+      --set gateway.enabled=false \
+      --set monitoring.selfMonitoring.enabled=false \
+      --set monitoring.lokiCanary.enabled=false \
+      --set test.enabled=false \
+      --set chunksCache.enabled=false \
+      --set resultsCache.enabled=false \
+      --timeout 300s
   register: loki_install
   changed_when: "'has been upgraded' in loki_install.stdout or 'Installing it now' in loki_install.stdout"
+  become: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# -----------------------------------------------
+# Promtail (collecte des logs de tous les pods)
+# -----------------------------------------------
+- name: Deployer Promtail (agent de collecte des logs)
+  ansible.builtin.shell: |
+    helm upgrade --install promtail grafana/promtail \
+      --namespace monitoring \
+      --set config.clients[0].url=http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push \
+      --timeout 120s
+  register: promtail_install
+  changed_when: "'has been upgraded' in promtail_install.stdout or 'Installing it now' in promtail_install.stdout"
   become: true
   environment:
     KUBECONFIG: "{{ kubeconfig_path }}"
