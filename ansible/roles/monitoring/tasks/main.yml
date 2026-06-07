@@ -75,29 +75,39 @@
 # -----------------------------------------------
 # Loki (aggregation des logs) — config minimale pour cluster mono-noeud
 # -----------------------------------------------
+- name: Nettoyer une eventuelle installation Loki precedente
+  ansible.builtin.shell: helm uninstall loki --namespace monitoring 2>/dev/null || true
+  become: true
+  changed_when: false
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Supprimer les ressources Loki residuelles
+  ansible.builtin.shell: |
+    k3s kubectl delete statefulset,service,configmap -l app=loki -n monitoring 2>/dev/null || true
+    k3s kubectl delete statefulset loki -n monitoring 2>/dev/null || true
+  become: true
+  changed_when: false
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
 - name: Deployer Loki (config legere mono-noeud)
   ansible.builtin.shell: |
     helm upgrade --install loki grafana/loki \
       --namespace monitoring --create-namespace \
-      --set deploymentMode=SingleBinary \
       --set loki.auth_enabled=false \
       --set loki.commonConfig.replication_factor=1 \
       --set loki.storage.type=filesystem \
-      --set loki.schemaConfig.configs[0].from="2024-01-01" \
-      --set loki.schemaConfig.configs[0].store=tsdb \
-      --set loki.schemaConfig.configs[0].object_store=filesystem \
-      --set loki.schemaConfig.configs[0].schema=v13 \
-      --set loki.schemaConfig.configs[0].index.prefix=loki_index_ \
-      --set loki.schemaConfig.configs[0].index.period=24h \
       --set singleBinary.replicas=1 \
       --set read.replicas=0 \
       --set write.replicas=0 \
       --set backend.replicas=0 \
+      --set gateway.enabled=false \
+      --set monitoring.selfMonitoring.enabled=false \
+      --set monitoring.lokiCanary.enabled=false \
+      --set test.enabled=false \
       --set chunksCache.enabled=false \
       --set resultsCache.enabled=false \
-      --set lokiCanary.enabled=false \
-      --set test.enabled=false \
-      --set gateway.enabled=false \
       --timeout 300s
   register: loki_install
   changed_when: "'has been upgraded' in loki_install.stdout or 'Installing it now' in loki_install.stdout"
@@ -143,6 +153,36 @@
             url: http://loki.monitoring.svc.cluster.local:3100
             isDefault: false
     DSEOF
+  become: true
+  changed_when: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# -----------------------------------------------
+# ServiceMonitor : indique a Prometheus de scraper /metrics.php de l'app
+# -----------------------------------------------
+- name: Creer le ServiceMonitor pour les metriques applicatives
+  ansible.builtin.shell: |
+    cat <<'SMEOF' | k3s kubectl apply -f -
+    apiVersion: monitoring.coreos.com/v1
+    kind: ServiceMonitor
+    metadata:
+      name: pictionary-web
+      namespace: monitoring
+      labels:
+        release: monitoring
+    spec:
+      namespaceSelector:
+        matchNames:
+          - pictionary
+      selector:
+        matchLabels:
+          app: pictionary-web
+      endpoints:
+        - port: http
+          path: /metrics.php
+          interval: 15s
+    SMEOF
   become: true
   changed_when: true
   environment:
