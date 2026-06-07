@@ -1,3 +1,13 @@
+## [1.12.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.11.4...v1.12.0) (2026-06-07)
+
+### Features
+
+* **bot:** add deployment ([6cc13b1](https://github.com/salim-nejdi/pictionary-devops/commit/6cc13b16b9dce985ff40bdecc7a1ecfb4957d8a7))
+
+### Bug Fixes
+
+* **ci:** add feature ([d534c42](https://github.com/salim-nejdi/pictionary-devops/commit/d534c42b5772b2c62290032cb20acad1aecc9232))
+
 ## [1.11.4](https://github.com/salim-nejdi/pictionary-devops/compare/v1.11.3...v1.11.4) (2026-06-07)
 
 ### Bug Fixes
