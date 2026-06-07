@@ -22,6 +22,17 @@ data:
       CHARACTER SET utf8mb4
       COLLATE utf8mb4_unicode_ci;
 
+    -- Table des compteurs pour les metriques applicatives (Prometheus).
+    -- Partagee entre les replicas web, persistante.
+    CREATE TABLE IF NOT EXISTS metrics (
+        name  VARCHAR(64) PRIMARY KEY,
+        value BIGINT NOT NULL DEFAULT 0
+    ) ENGINE=InnoDB;
+
+    INSERT IGNORE INTO metrics (name, value) VALUES
+        ('requests_total', 0),
+        ('words_generated_total', 0);
+
     INSERT IGNORE INTO mots (mot) VALUES
         ('Chat'), ('Chien'), ('Lion'), ('Tigre'), ('Éléphant'),
         ('Girafe'), ('Singe'), ('Lapin'), ('Cochon'), ('Vache'),
