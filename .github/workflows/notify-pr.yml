@@ -1,0 +1,32 @@
+name: Notify Pull Request
+# Notifie Discord (#deploiements) a l'ouverture ou la reouverture d'une Pull Request,
+# avec un lien direct pour la consulter et la valider.
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notifier #deploiements (nouvelle PR)
+        run: |
+          curl -H "Content-Type: application/json" \
+            -d '{
+              "embeds": [{
+                "title": "Nouvelle Pull Request a valider",
+                "description": ${{ toJSON(github.event.pull_request.title) }},
+                "color": 5793266,
+                "fields": [
+                  {"name": "Auteur", "value": "${{ github.event.pull_request.user.login }}", "inline": true},
+                  {"name": "Branche", "value": "`${{ github.event.pull_request.head.ref }}` -> `${{ github.event.pull_request.base.ref }}`", "inline": true},
+                  {"name": "Lien", "value": "[Consulter et valider la PR](${{ github.event.pull_request.html_url }})"}
+                ],
+                "footer": {"text": "Pictionary - Pull Requests"}
+              }]
+            }' \
+            "${{ secrets.DISCORD_WEBHOOK_DEPLOIEMENTS }}"
