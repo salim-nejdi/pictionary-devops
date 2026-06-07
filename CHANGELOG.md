@@ -1,3 +1,9 @@
+## [1.7.2](https://github.com/salim-nejdi/pictionary-devops/compare/v1.7.1...v1.7.2) (2026-06-07)
+
+### Bug Fixes
+
+* **monitoring:** monitor only the prod ([a4d0529](https://github.com/salim-nejdi/pictionary-devops/commit/a4d0529ae8328ab9c091343208ed4c9cb280cab3))
+
 ## [1.7.1](https://github.com/salim-nejdi/pictionary-devops/compare/v1.7.0...v1.7.1) (2026-06-07)
 
 ### Bug Fixes
