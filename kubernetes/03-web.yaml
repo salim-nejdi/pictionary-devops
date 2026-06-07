@@ -79,6 +79,8 @@ kind: Service
 metadata:
   name: pictionary-web-service
   namespace: pictionary
+  labels:
+    app: pictionary-web      # requis : le ServiceMonitor selectionne le service par ce label
 spec:
   selector:
     app: pictionary-web
