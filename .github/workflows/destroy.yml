@@ -1,5 +1,4 @@
 name: Destroy Infrastructure
-
 # workflow_dispatch = declenchement MANUEL (bouton "Run workflow" sur GitHub,
 # ou appel via l'API GitHub depuis le bot Discord).
 # "inputs" = parametres demandes au lancement.
@@ -13,10 +12,8 @@ on:
         options:
           - preprod
           - prod
-
 permissions:
   contents: read
-
 jobs:
   destroy:
     runs-on: ubuntu-latest
@@ -27,13 +24,11 @@ jobs:
     steps:
       - name: Recuperer le code
         uses: actions/checkout@v4
-
       - name: Installer Terraform
         run: |
           wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
           echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
           sudo apt-get update && sudo apt-get install -y terraform
-
       - name: Terraform destroy
         working-directory: ./terraform
         env:
@@ -51,10 +46,20 @@ jobs:
         run: |
           terraform init
           terraform destroy -auto-approve
-
-      - name: Notifier Discord (infra detruite)
+      - name: Notifier #destroy (infra detruite)
         if: success()
         run: |
           curl -H "Content-Type: application/json" \
-            -d '{"content": "**Infrastructure detruite** : environnement `${{ github.event.inputs.environment }}` supprime."}' \
-            "${{ secrets.DISCORD_WEBHOOK_URL }}"
+            -d '{
+              "embeds": [{
+                "title": "Infrastructure detruite",
+                "description": "L environnement a ete supprime via Terraform destroy.",
+                "color": 10038562,
+                "fields": [
+                  {"name": "Environnement", "value": "`${{ github.event.inputs.environment }}`", "inline": true},
+                  {"name": "Workspace", "value": "`pictionary-${{ github.event.inputs.environment }}`", "inline": true}
+                ],
+                "footer": {"text": "Pictionary - Destroy"}
+              }]
+            }' \
+            "${{ secrets.DISCORD_WEBHOOK_DESTROY }}"
