@@ -1,3 +1,9 @@
+## [1.7.1](https://github.com/salim-nejdi/pictionary-devops/compare/v1.7.0...v1.7.1) (2026-06-07)
+
+### Bug Fixes
+
+* **monitoring:** add loki ([47adcb3](https://github.com/salim-nejdi/pictionary-devops/commit/47adcb363457d505b9255037e5d3b7857435d5d9))
+
 ## [1.7.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.6.4...v1.7.0) (2026-06-07)
 
 ### Features
