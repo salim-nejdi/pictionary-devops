@@ -1,0 +1,117 @@
+name: Deploy On Demand
+# Deploiement a la demande (declenche par le bot Discord /deploy ou l'interface GitHub).
+# Deploie une image DEJA construite (pas de rebuild, pas de tests) sur l'environnement choisi.
+#   - preprod : tag de type preprod-<sha>, sans validation
+#   - prod    : tag SemVer, AVEC validation humaine (environnement protege)
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environnement cible"
+        required: true
+        type: choice
+        options:
+          - preprod
+          - prod
+      version:
+        description: "Version/tag d'image a deployer (preprod-<sha> ou X.Y.Z)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Validation humaine en prod (environnement "production" avec required reviewers),
+    # aucune validation en preprod.
+    environment: ${{ github.event.inputs.environment == 'prod' && 'production' || 'preprod' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verifier que l'image existe sur GHCR
+        run: |
+          echo "Deploiement a la demande : ${{ github.event.inputs.version }} -> ${{ github.event.inputs.environment }}"
+          # L'image ghcr.io/<repo>:<version> doit deja exister (build CI/CD anterieur).
+
+      - name: Installer Terraform et Ansible
+        run: |
+          sudo apt-get update && sudo apt-get install -y ansible netcat-openbsd
+          wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+          sudo apt-get update && sudo apt-get install -y terraform
+
+      - name: Terraform apply (VM de l'environnement choisi)
+        id: tf
+        working-directory: ./terraform
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+          # Workspace selon l'input : pictionary-preprod ou pictionary-prod
+          TF_WORKSPACE: pictionary-${{ github.event.inputs.environment }}
+          OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+          OS_USERNAME: ${{ secrets.OS_USERNAME }}
+          OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+          OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
+          OS_TENANT_NAME: ${{ secrets.OS_TENANT_NAME }}
+          OS_REGION_NAME: ${{ secrets.OS_REGION_NAME }}
+          OS_USER_DOMAIN_NAME: ${{ secrets.OS_USER_DOMAIN_NAME }}
+          OS_PROJECT_DOMAIN_NAME: ${{ secrets.OS_PROJECT_DOMAIN_NAME }}
+        run: |
+          terraform init
+          terraform apply -auto-approve
+          echo "ip=$(terraform output -raw instance_ip)" >> "$GITHUB_OUTPUT"
+
+      - name: Preparer cle SSH et mot de passe Vault
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > /tmp/vault-pass.txt
+
+      - name: Attendre que le SSH soit pret
+        run: |
+          for i in $(seq 1 30); do
+            if nc -z -w5 "${{ steps.tf.outputs.ip }}" 22; then echo "SSH pret"; exit 0; fi
+            echo "Attente SSH $i/30..."; sleep 10
+          done
+          echo "SSH injoignable"; exit 1
+
+      - name: Deploiement Ansible (image choisie)
+        working-directory: ./ansible
+        env:
+          OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+          OS_USERNAME: ${{ secrets.OS_USERNAME }}
+          OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+          OS_REGION_NAME: ${{ secrets.OS_REGION_NAME }}
+        run: |
+          # La supervision n'est activee qu'en prod (comme dans le pipeline principal).
+          MONITORING=false
+          if [ "${{ github.event.inputs.environment }}" = "prod" ]; then MONITORING=true; fi
+          ansible-playbook -i "${{ steps.tf.outputs.ip }}," playbook.yml \
+            --vault-password-file /tmp/vault-pass.txt \
+            --extra-vars "image_ref=ghcr.io/${{ github.repository }}:${{ github.event.inputs.version }} app_version=${{ github.event.inputs.version }} enable_monitoring=$MONITORING discord_webhook_url=${{ secrets.DISCORD_WEBHOOK_ALERTES }}"
+
+      - name: Nettoyer les fichiers sensibles
+        if: always()
+        run: rm -f ~/.ssh/id_rsa /tmp/vault-pass.txt
+
+      - name: Notifier #deploy (deploiement a la demande effectue)
+        if: success()
+        run: |
+          curl -H "Content-Type: application/json" \
+            -d '{
+              "embeds": [{
+                "title": "Deploiement a la demande effectue",
+                "description": "Une version a ete deployee manuellement via la commande /deploy.",
+                "color": 3066993,
+                "fields": [
+                  {"name": "Version", "value": "`${{ github.event.inputs.version }}`", "inline": true},
+                  {"name": "Environnement", "value": "`${{ github.event.inputs.environment }}`", "inline": true},
+                  {"name": "Acces", "value": "http://${{ steps.tf.outputs.ip }}"}
+                ],
+                "footer": {"text": "Pictionary - Deploy"}
+              }]
+            }' \
+            "${{ secrets.DISCORD_WEBHOOK_DEPLOY }}"
