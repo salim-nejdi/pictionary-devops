@@ -1,3 +1,9 @@
+## [1.11.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.10.0...v1.11.0) (2026-06-07)
+
+### Features
+
+* **monitoring:** clean dashboard with app + cluster metrics ([f3b1ea3](https://github.com/salim-nejdi/pictionary-devops/commit/f3b1ea35e375673ca79dd062c9c9df736457c9d4))
+
 ## [1.10.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.9.0...v1.10.0) (2026-06-07)
 
 ### Features
