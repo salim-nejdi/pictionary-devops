@@ -23,9 +23,9 @@ variable "network_name" {
 }
 
 variable "allowed_tcp_ports" {
-  description = "Ports TCP autorises en entree : 22 SSH, 80 HTTP, 443 HTTPS, 6443 API K3s"
+  description = "Ports TCP autorises en entree : 22 SSH, 80 HTTP, 443 HTTPS, 6443 API K3s, 30080 GRAFANA"
   type        = list(number)
-  default     = [22, 80, 443, 6443]
+  default     = [22, 80, 443, 6443, 30080]
 }
 variable "region" {
   description = "Region OpenStack OVH (nom exact du catalogue)"
