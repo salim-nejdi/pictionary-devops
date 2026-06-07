@@ -1,6 +1,6 @@
 name: CI/CD Pictionary
 
-# Un seul run, declenche par un push sur preprod, enchaine tout via "needs" :
+# Un seul run, declenche par un push sur main, enchaine tout via "needs" :
 # build -> deploy preprod -> smoke tests -> release -> deploy prod (validation humaine)
 on:
   push:
@@ -118,6 +118,7 @@ jobs:
 
   # ===========================================================================
   # 3. SMOKE-TESTS : verifie que la preprod repond correctement
+  #    -> Notifie #ci-builds (vert si succes, rouge si echec)
   # ===========================================================================
   smoke-tests:
     needs: deploy-preprod
@@ -144,6 +145,43 @@ jobs:
           API=$(curl -ks "https://$IP/?action=get_word")
           [ -n "$API" ] || { echo "Test 3 ECHEC : API vide"; exit 1; }
           echo "Test 3 OK : API + BDD fonctionnelles"
+
+      - name: Notifier #ci-builds (smoke tests reussis)
+        if: success()
+        run: |
+          curl -H "Content-Type: application/json" \
+            -d '{
+              "embeds": [{
+                "title": "Smoke tests reussis",
+                "description": "La preproduction a passe les tests de validation (site + API + BDD).",
+                "color": 3066993,
+                "fields": [
+                  {"name": "Environnement", "value": "preprod", "inline": true},
+                  {"name": "Image testee", "value": "`${{ needs.build.outputs.sha_tag }}`", "inline": true}
+                ],
+                "footer": {"text": "Pictionary CI/CD"}
+              }]
+            }' \
+            "${{ secrets.DISCORD_WEBHOOK_CI }}"
+
+      - name: Notifier #ci-builds (smoke tests echoues)
+        if: failure()
+        run: |
+          curl -H "Content-Type: application/json" \
+            -d '{
+              "embeds": [{
+                "title": "Smoke tests echoues",
+                "description": "La preproduction n a pas passe les tests. Le pipeline est interrompu.",
+                "color": 15158332,
+                "fields": [
+                  {"name": "Environnement", "value": "preprod", "inline": true},
+                  {"name": "Image testee", "value": "`${{ needs.build.outputs.sha_tag }}`", "inline": true},
+                  {"name": "Details", "value": "[Voir le run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"}
+                ],
+                "footer": {"text": "Pictionary CI/CD"}
+              }]
+            }' \
+            "${{ secrets.DISCORD_WEBHOOK_CI }}"
 
   # ===========================================================================
   # 4. RELEASE : semantic-release calcule la version, cree tag + release + changelog
@@ -185,21 +223,33 @@ jobs:
           fi
 
   # ===========================================================================
-  # 5. NOTIFY-PROD : notifie Discord qu'une validation prod est attendue
+  # 5. NOTIFY-PROD : notifie #deploiements qu'une validation prod est attendue
   # ===========================================================================
   notify-prod:
     needs: release
     if: needs.release.outputs.published == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Notifier Discord
+      - name: Notifier #deploiements (validation requise)
         run: |
           curl -H "Content-Type: application/json" \
-            -d '{"content": "**Deploiement PROD en attente de validation**\nVersion `${{ needs.release.outputs.version }}` prete.\nValider : https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' \
-            "${{ secrets.DISCORD_WEBHOOK_URL }}"
+            -d '{
+              "embeds": [{
+                "title": "Validation requise pour la PRODUCTION",
+                "description": "Une nouvelle version est prete a etre deployee en production et attend une approbation manuelle.",
+                "color": 15105570,
+                "fields": [
+                  {"name": "Version", "value": "`${{ needs.release.outputs.version }}`", "inline": true},
+                  {"name": "Action", "value": "[Approuver le deploiement](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"}
+                ],
+                "footer": {"text": "Pictionary CI/CD"}
+              }]
+            }' \
+            "${{ secrets.DISCORD_WEBHOOK_DEPLOIEMENTS }}"
 
   # ===========================================================================
-  # 6. DEPLOY-PROD : build image versionnee + deploie (PAUSE validation humaine)
+  # 6. DEPLOY-PROD : promotion image versionnee + deploie (PAUSE validation humaine)
+  #    -> Notifie #deploiements (succes) + #versions (version en prod)
   # ===========================================================================
   deploy-prod:
     needs: [release, notify-prod]
@@ -279,15 +329,45 @@ jobs:
         run: |
           ansible-playbook -i "${{ steps.tf.outputs.ip }}," playbook.yml \
             --vault-password-file /tmp/vault-pass.txt \
-            --extra-vars "image_ref=ghcr.io/${{ github.repository }}:${{ needs.release.outputs.version }} app_version=${{ needs.release.outputs.version }} enable_monitoring=true discord_webhook_url=${{ secrets.DISCORD_WEBHOOK_URL }}"
+            --extra-vars "image_ref=ghcr.io/${{ github.repository }}:${{ needs.release.outputs.version }} app_version=${{ needs.release.outputs.version }} enable_monitoring=true discord_webhook_url=${{ secrets.DISCORD_WEBHOOK_ALERTES }}"
 
       - name: Nettoyer les fichiers sensibles
         if: always()
         run: rm -f ~/.ssh/id_rsa /tmp/vault-pass.txt
 
-      - name: Notifier Discord (succes)
+      - name: Notifier #deploiements (succes)
         if: success()
         run: |
           curl -H "Content-Type: application/json" \
-            -d '{"content": "**Deploiement PROD reussi** : version `${{ needs.release.outputs.version }}` en production."}' \
-            "${{ secrets.DISCORD_WEBHOOK_URL }}"
+            -d '{
+              "embeds": [{
+                "title": "Deploiement PRODUCTION reussi",
+                "description": "La nouvelle version est desormais en production.",
+                "color": 3066993,
+                "fields": [
+                  {"name": "Version", "value": "`${{ needs.release.outputs.version }}`", "inline": true},
+                  {"name": "Environnement", "value": "production", "inline": true},
+                  {"name": "Acces", "value": "http://${{ steps.tf.outputs.ip }}"}
+                ],
+                "footer": {"text": "Pictionary CI/CD"}
+              }]
+            }' \
+            "${{ secrets.DISCORD_WEBHOOK_DEPLOIEMENTS }}"
+
+      - name: Notifier #versions (version actuelle en prod)
+        if: success()
+        run: |
+          curl -H "Content-Type: application/json" \
+            -d '{
+              "embeds": [{
+                "title": "Version en production",
+                "description": "La production execute actuellement la version ci-dessous.",
+                "color": 3447003,
+                "fields": [
+                  {"name": "Version actuelle", "value": "`${{ needs.release.outputs.version }}`", "inline": true},
+                  {"name": "Mise a jour le", "value": "<t:0:R>", "inline": true}
+                ],
+                "footer": {"text": "Pictionary - Suivi de version"}
+              }]
+            }' \
+            "${{ secrets.DISCORD_WEBHOOK_VERSIONS }}"
