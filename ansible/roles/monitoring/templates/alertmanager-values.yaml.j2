@@ -18,6 +18,7 @@ alertmanager:
       repeat_interval: 1h
       receiver: "notifications"
     receivers:
+      - name: "null"
       - name: "notifications"
         # --- Canal 1 : Email ---
         email_configs:
