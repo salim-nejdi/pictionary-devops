@@ -12,6 +12,8 @@
   changed_when: false
   failed_when: false
   become: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
 
 - name: Installer Helm
   when: helm_check.rc != 0
@@ -30,6 +32,8 @@
   changed_when: "'has been added' in repo_prom.stdout"
   failed_when: false
   become: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
 
 - name: Ajouter le repo Helm grafana (Loki/Promtail)
   ansible.builtin.command: helm repo add grafana https://grafana.github.io/helm-charts
@@ -37,11 +41,15 @@
   changed_when: "'has been added' in repo_grafana.stdout"
   failed_when: false
   become: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
 
 - name: Mettre a jour les repos Helm
   ansible.builtin.command: helm repo update
   changed_when: false
   become: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
 
 # -----------------------------------------------
 # Prometheus + Grafana (kube-prometheus-stack)
@@ -60,7 +68,9 @@
   register: monitoring_install
   changed_when: "'has been upgraded' in monitoring_install.stdout or 'Installing it now' in monitoring_install.stdout"
   become: true
-  no_log: false
+  no_log: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
 
 # -----------------------------------------------
 # Loki (aggregation des logs)
@@ -91,6 +101,8 @@
   register: loki_install
   changed_when: "'has been upgraded' in loki_install.stdout or 'Installing it now' in loki_install.stdout"
   become: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
 
 - name: Attendre que Loki soit pret
   ansible.builtin.shell: |
@@ -99,6 +111,8 @@
   become: true
   register: loki_status
   changed_when: false
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
 
 # -----------------------------------------------
 # Promtail (collecte des logs de tous les pods)
@@ -112,6 +126,8 @@
   register: promtail_install
   changed_when: "'has been upgraded' in promtail_install.stdout or 'Installing it now' in promtail_install.stdout"
   become: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
 
 # -----------------------------------------------
 # Datasource Loki dans Grafana (detectee automatiquement via label)
@@ -138,6 +154,8 @@
     DSEOF
   become: true
   changed_when: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
 
 # -----------------------------------------------
 # Dashboards custom (injectes via ConfigMap + label sidecar)
@@ -164,6 +182,8 @@
       --dry-run=client -o yaml | k3s kubectl apply -f -
   become: true
   changed_when: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
 
 - name: Labelliser la ConfigMap pour le sidecar Grafana
   ansible.builtin.shell: |
@@ -172,6 +192,8 @@
       grafana_dashboard="1" --overwrite
   become: true
   changed_when: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
 
 # -----------------------------------------------
 # Affichage des acces
