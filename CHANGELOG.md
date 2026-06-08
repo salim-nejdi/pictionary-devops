@@ -1,3 +1,9 @@
+## [1.14.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.13.3...v1.14.0) (2026-06-08)
+
+### Features
+
+* **ci:** update php ([2a3ac01](https://github.com/salim-nejdi/pictionary-devops/commit/2a3ac013684beffdaf18cb560045d05ec249b7d9))
+
 ## [1.13.3](https://github.com/salim-nejdi/pictionary-devops/compare/v1.13.2...v1.13.3) (2026-06-08)
 
 ### Bug Fixes
