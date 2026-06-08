@@ -1,3 +1,9 @@
+## [1.18.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.17.0...v1.18.0) (2026-06-08)
+
+### Features
+
+* **ci:** add canary7 ([a381ca6](https://github.com/salim-nejdi/pictionary-devops/commit/a381ca64c5853830540d41b8351d118e958ed71e))
+
 ## [1.17.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.16.0...v1.17.0) (2026-06-08)
 
 ### Features
