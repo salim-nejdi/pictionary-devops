@@ -1,3 +1,9 @@
+## [1.13.3](https://github.com/salim-nejdi/pictionary-devops/compare/v1.13.2...v1.13.3) (2026-06-08)
+
+### Bug Fixes
+
+* **ci:** remote ([7e25f0b](https://github.com/salim-nejdi/pictionary-devops/commit/7e25f0b80bb9768dd34b739b97d22919f287a6d6))
+
 ## [1.13.2](https://github.com/salim-nejdi/pictionary-devops/compare/v1.13.1...v1.13.2) (2026-06-08)
 
 ### Bug Fixes
