@@ -1,0 +1,74 @@
+name: Canary Weight
+# Ajuste la repartition du trafic entre stable et canary (patch du TraefikService).
+# Declenche par le bot Discord (/canary <poids>) ou manuellement.
+on:
+  workflow_dispatch:
+    inputs:
+      weight:
+        description: "Poids du canary en % (0-100). La stable recoit le reste."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  set-weight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer Terraform
+        run: |
+          wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+          sudo apt-get update && sudo apt-get install -y terraform
+
+      - name: Recuperer l'IP de la prod
+        id: tf
+        working-directory: ./terraform
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+          TF_WORKSPACE: pictionary-prod
+        run: |
+          terraform init
+          echo "ip=$(terraform output -raw instance_ip)" >> "$GITHUB_OUTPUT"
+
+      - name: Preparer la cle SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Ajuster le poids du canary
+        run: |
+          W="${{ github.event.inputs.weight }}"
+          S=$((100 - W))
+          echo "Repartition : stable=$S% / canary=$W%"
+          PAYLOAD="{\"spec\":{\"weighted\":{\"services\":[{\"name\":\"pictionary-web-service\",\"namespace\":\"pictionary\",\"port\":80,\"weight\":$S},{\"name\":\"pictionary-web-service\",\"namespace\":\"pictionary-canary\",\"port\":80,\"weight\":$W}]}}}"
+          ssh -o StrictHostKeyChecking=no debian@${{ steps.tf.outputs.ip }} \
+            "sudo k3s kubectl patch traefikservices.traefik.io pictionary-weighted -n pictionary --type merge -p '$PAYLOAD'"
+
+      - name: Nettoyer la cle SSH
+        if: always()
+        run: rm -f ~/.ssh/id_rsa
+
+      - name: Notifier #deploiements
+        if: success()
+        run: |
+          W="${{ github.event.inputs.weight }}"
+          S=$((100 - W))
+          curl -H "Content-Type: application/json" \
+            -d "{
+              \"embeds\": [{
+                \"title\": \"Repartition canary mise a jour\",
+                \"description\": \"Le trafic vers la version canary a ete ajuste.\",
+                \"color\": 15844367,
+                \"fields\": [
+                  {\"name\": \"Canary\", \"value\": \"${W}%\", \"inline\": true},
+                  {\"name\": \"Stable\", \"value\": \"${S}%\", \"inline\": true}
+                ],
+                \"footer\": {\"text\": \"Pictionary - Canary\"}
+              }]
+            }" \
+            "${{ secrets.DISCORD_WEBHOOK_DEPLOIEMENTS }}"
