@@ -1,0 +1,93 @@
+# 06-web-canary.yaml — Web canary (prod bis) dans le namespace pictionary-canary.
+# Identique au web stable, SAUF :
+#   - namespace : pictionary-canary
+#   - DB_HOST : pointe vers la DB du namespace pictionary (DNS cross-namespace)
+# La DB est PARTAGEE : versions stable et canary doivent rester compatibles niveau schema.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pictionary-web
+  namespace: pictionary-canary
+  labels:
+    app: pictionary-web
+    track: canary
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pictionary-web
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: pictionary-web
+        track: canary
+    spec:
+      containers:
+        - name: web
+          image: __IMAGE_REF__
+          ports:
+            - containerPort: 80
+          env:
+            - name: APP_VERSION
+              value: "__APP_VERSION__"
+            # DB partagee : nom complet cross-namespace vers la DB du namespace pictionary
+            - name: DB_HOST
+              value: pictionary-db-service.pictionary.svc.cluster.local
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: pictionary-db-secret
+                  key: MYSQL_DATABASE
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: pictionary-db-secret
+                  key: MYSQL_USER
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: pictionary-db-secret
+                  key: MYSQL_PASSWORD
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+# Service web canary : meme nom que la stable mais dans le namespace canary.
+apiVersion: v1
+kind: Service
+metadata:
+  name: pictionary-web-service
+  namespace: pictionary-canary
+  labels:
+    app: pictionary-web
+    track: canary
+spec:
+  selector:
+    app: pictionary-web
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP
