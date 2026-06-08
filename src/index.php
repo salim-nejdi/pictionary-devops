@@ -1,8 +1,10 @@
 <?php
 // =============================================================================
 // SECTION 1 — CONFIGURATION
+//fdgfdgfdg
 // On lit les variables d'environnement injectées par Kubernetes (Secret K8s)
 // ou par Docker en local (.env via docker-compose).
+//sdfdg
 // getenv('VAR') retourne false si la variable n'existe pas.
 // On NE met PAS de valeur par défaut pour les secrets (pas de ?: 'motdepasse').
 // Si une variable manque, on veut le savoir immédiatement — pas un comportement
@@ -50,39 +52,20 @@ $is_preprod = str_contains($app_version, 'preprod');
 
 // =============================================================================
 // SECTION 2 — CONNEXION BASE DE DONNÉES
-//
-// PDO (PHP Data Objects) est l'interface standard pour accéder aux bases
-// de données en PHP. Elle supporte MySQL, PostgreSQL, SQLite, etc.
-// On configure trois options importantes dans le tableau $options.
 // =============================================================================
 
 try {
     $pdo = new PDO(
-        // DSN (Data Source Name) : chaîne qui identifie la base de données.
-        // charset=utf8mb4 : obligatoire pour supporter les accents et les emojis.
         "mysql:host={$db_host};dbname={$db_name};charset=utf8mb4",
         $db_user,
         $db_pass,
         [
-            // ERRMODE_EXCEPTION : si une requête SQL échoue, PHP lève une
-            // exception au lieu d'échouer silencieusement. On peut la attraper
-            // avec try/catch et loguer l'erreur proprement.
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-
-            // FETCH_ASSOC : les résultats de requêtes sont retournés sous forme
-            // de tableau associatif ['colonne' => 'valeur'] plutôt qu'un tableau
-            // numérique [0 => 'valeur']. Plus lisible dans le code.
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-
-            // EMULATE_PREPARES => false : désactive l'émulation des requêtes
-            // préparées. PDO envoie la vraie requête préparée au moteur SQL
-            // au lieu de la simuler côté PHP. Plus sécurisé contre les injections.
             PDO::ATTR_EMULATE_PREPARES   => false,
         ]
     );
 } catch (PDOException $e) {
-    // On logue le vrai message d'erreur (contient host, user, etc.)
-    // uniquement dans les logs serveur — jamais affiché à l'utilisateur.
     error_log('[Pictionary] Erreur connexion DB : ' . $e->getMessage());
 
     if (isset($_GET['action'])) {
@@ -96,7 +79,7 @@ try {
     die('<h1>Service temporairement indisponible</h1>');
 }
 
-// Metrique applicative : compte chaque requete HTTP recue (partage en base).
+// Metrique applicative
 try {
     $pdo->exec("UPDATE metrics SET value = value + 1 WHERE name = 'requests_total'");
 } catch (Exception $e) { /* non bloquant */ }
@@ -104,32 +87,17 @@ try {
 
 // =============================================================================
 // SECTION 3 — API AJAX
-//
-// Ce point d'entrée est appelé par le JavaScript de la page via :
-//   fetch('?action=get_word')
-//
-// Il retourne un mot aléatoire depuis la base de données au format JSON.
-// Ex: {"mot": "Éléphant"}
 // =============================================================================
 
 if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
-
-    // ORDER BY RAND() : tire un enregistrement aléatoire.
-    // Acceptable pour un petit jeu avec ~150 mots.
-    // Sur des millions de lignes, RAND() serait trop lent — on utiliserait
-    // une autre technique, mais ici c'est parfaitement adapté.
     $stmt   = $pdo->query("SELECT mot FROM mots ORDER BY RAND() LIMIT 1");
     $result = $stmt->fetch();
 
-    // Metrique applicative : incremente le compteur de mots generes (partage en base).
     try {
         $pdo->exec("UPDATE metrics SET value = value + 1 WHERE name = 'words_generated_total'");
     } catch (Exception $e) { /* non bloquant pour le jeu */ }
 
     header('Content-Type: application/json');
-    // Pas de header Access-Control-Allow-Origin ici :
-    // l'API et le front sont servis par le même Apache sur la même URL.
-    // CORS ne s'applique qu'entre deux origines différentes.
     echo json_encode(['mot' => $result ? $result['mot'] : 'Base vide !']);
     exit;
 }
@@ -137,10 +105,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
 
 // =============================================================================
 // SECTION 4 — PAGE HTML
-//
-// Tout ce qui suit est rendu par Apache et envoyé au navigateur.
-// Le JavaScript embarqué appelle ensuite l'API ci-dessus pour récupérer
-// les mots sans recharger la page (fetch API).
 // =============================================================================
 ?>
 <!DOCTYPE html>
@@ -326,7 +290,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
 
         .stars { font-size: 1.2em; color: #f9c74f; margin-top: 20px; letter-spacing: 4px; }
 
-        /* Compteur de mots joues */
         .score-box {
             margin-top: 18px;
             padding: 12px 20px;
@@ -338,7 +301,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
         .score-box #count { font-size: 1.6em; color: #f9c74f; }
         .score-msg { font-size: 0.9em; margin-top: 6px; opacity: 0.9; }
 
-        /* Badge de version en bas de page */
         .version-badge {
             position: fixed;
             bottom: 12px;
@@ -352,9 +314,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
             box-shadow: 0 2px 8px rgba(0,0,0,0.25);
             z-index: 1000;
         }
-        /* Prod : badge sobre et discret */
         .version-prod { background: rgba(67, 170, 139, 0.9); }
-        /* Preprod : badge orange voyant pour ne pas confondre avec la prod */
         .version-preprod {
             background: #f3722c;
             border: 2px solid white;
@@ -366,11 +326,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
 <body>
 
     <script>
-        // -----------------------------------------------------------------
-        // CONFETTIS — générés dynamiquement au chargement de la page
-        // On les crée en JS plutôt qu'en HTML pour ne pas alourdir le DOM
-        // avec des dizaines de divs statiques.
-        // -----------------------------------------------------------------
         const colors = ['#f94144','#f3722c','#f9c74f','#43aa8b','#577590','#a8dadc'];
 
         for (let i = 0; i < 18; i++) {
@@ -410,21 +365,13 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
         <div class="stars">★ ★ ★ ★ ★</div>
 
         <div class="score-box">
-            🏆 Mots joues : <span id="count">0</span>
+            🏆 Mots joués : <span id="count">0</span>
             <div class="score-msg" id="score-msg">Lance ton premier mot !</div>
         </div>
     </div>
 
     <script>
-        // -----------------------------------------------------------------
-        // MAP MOT → EMOJI
-        //
-        // Les clés sont en MAJUSCULES pour la comparaison (voir getEmoji()).
-        // Ces mots doivent correspondre EXACTEMENT aux mots dans init.sql.
-        // Si un mot n'est pas dans cette map → emoji par défaut 🎨.
-        // -----------------------------------------------------------------
         const emojiMap = {
-            // Animaux
             'CHAT':'🐱','CHIEN':'🐶','LION':'🦁','TIGRE':'🐯','ÉLÉPHANT':'🐘',
             'GIRAFE':'🦒','SINGE':'🐒','LAPIN':'🐰','COCHON':'🐷','VACHE':'🐮',
             'CHEVAL':'🐴','MOUTON':'🐑','POULE':'🐔','CANARD':'🦆','POISSON':'🐟',
@@ -432,32 +379,26 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
             'SERPENT':'🐍','CROCODILE':'🐊','TORTUE':'🐢','DINOSAURE':'🦕','DRAGON':'🐉',
             'PAPILLON':'🦋','ABEILLE':'🐝','ARAIGNÉE':'🕷️','HIBOU':'🦉','PINGOUIN':'🐧',
             'FLAMANT':'🦩','PERROQUET':'🦜','AIGLE':'🦅',
-            // Nourriture
             'PIZZA':'🍕','BURGER':'🍔','FRITE':'🍟','HOT DOG':'🌭','SUSHI':'🍣',
             'RAMEN':'🍜','TACO':'🌮','GLACE':'🍦','GÂTEAU':'🎂','COOKIE':'🍪',
             'CHOCOLAT':'🍫','BONBON':'🍬','POMME':'🍎','BANANE':'🍌','FRAISE':'🍓',
             'RAISIN':'🍇','PASTÈQUE':'🍉','ANANAS':'🍍','CITRON':'🍋','CERISE':'🍒',
             'MANGUE':'🥭','CAROTTE':'🥕','MAÏS':'🌽','BROCOLI':'🥦','AUBERGINE':'🍆',
             'CHAMPIGNON':'🍄','FROMAGE':'🧀','PAIN':'🍞','CAFÉ':'☕','THÉ':'🍵',
-            // Véhicules
             'VOITURE':'🚗','CAMION':'🚛','BUS':'🚌','MOTO':'🏍️','VÉLO':'🚲',
             'TROTTINETTE':'🛴','AVION':'✈️','HÉLICOPTÈRE':'🚁','FUSÉE':'🚀','BATEAU':'🚢',
             'TRAIN':'🚂','TAXI':'🚕','AMBULANCE':'🚑','TRACTEUR':'🚜','SKATEBOARD':'🛹',
-            // Nature
             'SOLEIL':'☀️','LUNE':'🌙','ÉTOILE':'⭐','NUAGE':'☁️','PLUIE':'🌧️',
             'NEIGE':'❄️','ARC-EN-CIEL':'🌈','ÉCLAIR':'⚡','VOLCAN':'🌋','MONTAGNE':'⛰️',
             'PLAGE':'🏖️','DÉSERT':'🏜️','FORÊT':'🌲','FLEUR':'🌸','CACTUS':'🌵',
             'ARBRE':'🌳','FEUILLE':'🍃','MER':'🌊','FEU':'🔥','VENT':'💨',
-            // Objets
             'MAISON':'🏠','CHÂTEAU':'🏰','ÉCOLE':'🏫','HÔPITAL':'🏥','ÉGLISE':'⛪',
             'TENTE':'⛺','TÉLÉPHONE':'📱','ORDINATEUR':'💻','TÉLÉVISION':'📺','CAMÉRA':'📷',
             'LUNETTES':'👓','CLÉ':'🔑','CADENAS':'🔒','LAMPE':'💡','BOUGIE':'🕯️',
             'LIVRE':'📚','CRAYON':'✏️','MARTEAU':'🔨','BALLON':'🎈','CADEAU':'🎁',
             'COURONNE':'👑','DIAMANT':'💎','BAGUE':'💍','CHAPEAU':'🎩','PARAPLUIE':'☂️',
-            // Sport
             'FOOTBALL':'⚽','BASKET':'🏀','TENNIS':'🎾','BASEBALL':'⚾','GOLF':'⛳',
             'BOXE':'🥊','KARATÉ':'🥋','SKI':'⛷️','SURF':'🏄','GUITARE':'🎸',
-            // Personnages
             'ROBOT':'🤖','FANTÔME':'👻','MONSTRE':'👾','ZOMBIE':'🧟','FÉE':'🧚',
             'SORCIÈRE':'🧙','VAMPIRE':'🧛','PIRATE':'🏴‍☠️','COWBOY':'🤠','CLOWN':'🤡',
             'PÈRE NOËL':'🎅','ALIEN':'👽','LICORNE':'🦄','SIRÈNE':'🧜','ASTRONAUTE':'🧑‍🚀',
@@ -465,19 +406,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
 
         const DEFAULT_EMOJI = '🎨';
 
-        // Normalise le mot avant la recherche dans la map :
-        // .toUpperCase() → "éléphant" devient "ÉLÉPHANT"
-        // .trim()        → supprime les espaces en début/fin
         function getEmoji(mot) {
             return emojiMap[mot.toUpperCase().trim()] ?? DEFAULT_EMOJI;
-            // ?? (nullish coalescing) : retourne DEFAULT_EMOJI si la valeur
-            // est null ou undefined — plus précis que || qui retournerait
-            // DEFAULT_EMOJI pour n'importe quelle valeur falsy (0, '', false...).
         }
 
-        // -----------------------------------------------------------------
-        // TIMER — compte à rebours de 60 secondes
-        // -----------------------------------------------------------------
         let countdownInterval = null;
         let isTimerRunning    = false;
         const TIME_LIMIT      = 60;
@@ -492,7 +424,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
             timerBox.classList.remove('urgent');
             timerEl.textContent = `⏳ ${timeLeft}s`;
 
-            // On nettoie un éventuel timer précédent avant d'en créer un nouveau
             if (countdownInterval) clearInterval(countdownInterval);
 
             countdownInterval = setInterval(() => {
@@ -509,17 +440,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
             }, 1000);
         }
 
-        // -----------------------------------------------------------------
-        // GÉNÉRATION D'UN MOT
-        //
-        // fetch() : API JavaScript native pour faire des requêtes HTTP
-        // asynchrones sans recharger la page (remplace l'ancien XMLHttpRequest).
-        //
-        // async/await : syntaxe moderne pour gérer les opérations asynchrones.
-        // Sans async/await, on utiliserait des .then().catch() chaînés —
-        // plus difficile à lire.
-        // -----------------------------------------------------------------
-        // Compteur de mots joues durant la session
         let wordCount = 0;
 
         async function generateWord() {
@@ -528,11 +448,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
             const btn      = document.getElementById('btn');
             const timerBox = document.getElementById('timer-box');
 
-            // On désactive le bouton pendant la requête pour éviter
-            // les double-clics qui lanceraient plusieurs requêtes en parallèle.
             btn.disabled = true;
 
-            // On cache les éléments pendant la transition
             wordEl.classList.add('hidden');
             emojiEl.classList.add('hidden');
             if (!isTimerRunning) timerBox.style.display = 'none';
@@ -540,35 +457,34 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
             try {
                 const response = await fetch('?action=get_word');
 
-                // response.ok est true si le statut HTTP est entre 200 et 299.
-                // On vérifie explicitement pour distinguer une erreur réseau
-                // (catch) d'une erreur serveur (500, 503...).
                 if (!response.ok) {
                     throw new Error(`Erreur HTTP : ${response.status}`);
                 }
 
                 const data = await response.json();
 
-                // Petit délai pour que l'animation de disparition soit visible
                 setTimeout(() => {
                     wordEl.textContent  = data.mot;
                     emojiEl.textContent = getEmoji(data.mot);
 
-                    // Incremente le compteur de mots joues + message d'encouragement
                     wordCount++;
                     document.getElementById('count').textContent = wordCount;
-                    const msgEl = document.getElementById('score-msg');
-                    if (wordCount >= 20)      msgEl.textContent = 'Legende du Pictionary ! 🔥';
-                    else if (wordCount >= 10) msgEl.textContent = 'En feu ! Continue ! 🚀';
-                    else if (wordCount >= 5)  msgEl.textContent = 'Bien joue, tu chauffes ! 😎';
-                    else                      msgEl.textContent = 'Continue comme ca ! ✨';
+
+                    // Liste de mots d'encouragement
+                    const encouragements = [
+                        "Super ! 🌟", "Génial ! 🎉", "Continue comme ça ! 💪",
+                        "Allez ! ⚡", "Tu gères ! 😎", "Trop fort ! 🔥",
+                        "C'est parti ! 🚀", "Wow ! 🤩", "Magnifique ! ✨",
+                        "Incroyable ! 🎯", "On y croit ! 🏆", "Parfait ! 👌"
+                    ];
+                    
+                    // Tire un message d'encouragement au hasard et l'affiche
+                    const randomMsg = encouragements[Math.floor(Math.random() * encouragements.length)];
+                    document.getElementById('score-msg').textContent = randomMsg;
 
                     wordEl.classList.remove('hidden', 'pop');
                     emojiEl.classList.remove('hidden', 'pop');
 
-                    // void element.offsetWidth : force le navigateur à recalculer
-                    // le layout (reflow). Technique nécessaire pour "réinitialiser"
-                    // une animation CSS et pouvoir la rejouer.
                     void wordEl.offsetWidth;
                     void emojiEl.offsetWidth;
 
@@ -577,13 +493,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
 
                     btn.disabled = false;
 
-                    // On démarre le timer uniquement au premier mot du tour
                     if (!isTimerRunning) startTimer();
 
                 }, 200);
 
             } catch (error) {
-                // Erreur réseau ou réponse non parseable en JSON
                 console.error('[Pictionary] Erreur API :', error);
                 wordEl.textContent  = 'Erreur !';
                 emojiEl.textContent = '😢';
