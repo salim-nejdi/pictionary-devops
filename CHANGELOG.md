@@ -1,3 +1,9 @@
+## [1.13.2](https://github.com/salim-nejdi/pictionary-devops/compare/v1.13.1...v1.13.2) (2026-06-08)
+
+### Bug Fixes
+
+* **ci:** remise en fonciton ([d79e5c4](https://github.com/salim-nejdi/pictionary-devops/commit/d79e5c4d41f9dd0e146a05c64fe8f3738a1a8543))
+
 ## [1.13.1](https://github.com/salim-nejdi/pictionary-devops/compare/v1.13.0...v1.13.1) (2026-06-08)
 
 ### Bug Fixes
