@@ -1,3 +1,9 @@
+## [1.15.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.14.0...v1.15.0) (2026-06-08)
+
+### Features
+
+* **ci:** recoding php ([b32b8ba](https://github.com/salim-nejdi/pictionary-devops/commit/b32b8ba989b23829b2f16cb4241caf15832c5c6c))
+
 ## [1.14.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.13.3...v1.14.0) (2026-06-08)
 
 ### Features
