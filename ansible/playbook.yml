@@ -1,20 +1,22 @@
 # playbook.yml — Orchestrateur principal.
-# Lance dans l'ordre : installation de K3s, puis deploiement de l'application.
+# Lance dans l'ordre : installation de K3s, deploiement de l'app (stable),
+# version canary (prod), puis supervision (prod).
 #
 # Lancement local :
 #   ansible-playbook -i inventory.ini playbook.yml --ask-vault-pass
-# Lancement CI/CD (option 3, IP passee dynamiquement) :
+# Lancement CI/CD (IP passee dynamiquement) :
 #   ansible-playbook -i "$IP," playbook.yml \
 #     --vault-password-file vault-pass.txt \
-#     --extra-vars "image_tag=1.2.0"
-
+#     --extra-vars "image_ref=... app_version=..."
 - name: Deployer Pictionary sur K3s
   hosts: all                    # s'applique a tous les hotes fournis (groupe "all")
   become: true                  # execution en root par defaut (sudo)
   gather_facts: true            # collecte les infos systeme de la VM
-
   roles:
-    - k3s
-    - deploy
-    - role: monitoring
+    - k3s                       # 1. installe K3s
+    - deploy                    # 2. namespace + DB + web stable (+ Ingress en preprod)
+    - role: canary              # 3. version canary + routage pondere (prod uniquement)
+      when: enable_canary | default(false) | bool
+    - role: monitoring          # 4. supervision (prod uniquement)
       when: enable_monitoring | default(false) | bool
+
