@@ -56,15 +56,40 @@
     replace: "{{ app_version | default('dev') }}"
   become: true
 
-- name: Appliquer les manifestes applicatifs (mariadb, web, ingress)
+- name: Appliquer la base de donnees (toujours)
   ansible.builtin.shell: |
     k3s kubectl apply -f {{ manifests_remote_dir }}/02-mariadb.yaml
-    k3s kubectl apply -f {{ manifests_remote_dir }}/03-web.yaml
-    k3s kubectl apply -f {{ manifests_remote_dir }}/04-ingress.yaml
   become: true
 
-- name: Attendre que le deploiement web soit pret (rollout)
+- name: Verifier si le web stable existe deja (mode canary uniquement)
+  ansible.builtin.shell: "k3s kubectl get deployment pictionary-web -n {{ k8s_namespace }}"
+  register: stable_web_exists
+  failed_when: false
+  changed_when: false
+  when: enable_canary | default(false) | bool
+
+- name: Appliquer le web stable
+  # Preprod (sans canary) : toujours. Prod (canary) : seulement au bootstrap (si absent),
+  # pour que la stable garde sa version pendant qu'on teste le canary.
+  ansible.builtin.shell: |
+    k3s kubectl apply -f {{ manifests_remote_dir }}/03-web.yaml
+  become: true
+  when: >
+    (not (enable_canary | default(false) | bool))
+    or (stable_web_exists.rc | default(1) != 0)
+
+- name: Appliquer l'Ingress standard (preprod uniquement)
+  # En prod, le routage est gere par l'IngressRoute pondere du role canary.
+  ansible.builtin.shell: |
+    k3s kubectl apply -f {{ manifests_remote_dir }}/04-ingress.yaml
+  become: true
+  when: not (enable_canary | default(false) | bool)
+
+- name: Attendre que le web stable soit pret (rollout)
   ansible.builtin.shell: |
     k3s kubectl rollout status deployment/pictionary-web -n {{ k8s_namespace }} --timeout=180s
   become: true
   changed_when: false
+  when: >
+    (not (enable_canary | default(false) | bool))
+    or (stable_web_exists.rc | default(1) != 0)

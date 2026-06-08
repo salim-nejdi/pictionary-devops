@@ -1,0 +1,95 @@
+# roles/canary/tasks/main.yml — Deploiement de la version CANARY (prod bis).
+# Cree le namespace canary, le secret DB (cross-namespace), le web canary,
+# et le routage pondere Traefik (poids canary remis a 0 a chaque deploiement).
+# Ne s'execute qu'en prod (enable_canary=true), comme la supervision.
+
+- name: Copier les manifestes canary sur la VM
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ manifests_remote_dir }}/"
+    mode: "0644"
+  become: true
+  loop:
+    - "{{ playbook_dir }}/../kubernetes/canary/traefik-config.yaml"
+    - "{{ playbook_dir }}/../kubernetes/canary/05-namespace-canary.yaml"
+    - "{{ playbook_dir }}/../kubernetes/canary/06-web-canary.yaml"
+    - "{{ playbook_dir }}/../kubernetes/canary/07-routing-canary.yaml"
+
+# --- Traefik : autorise le routage cross-namespace (idempotent) ---
+- name: Activer allowCrossNamespace sur Traefik
+  ansible.builtin.shell: "k3s kubectl apply -f {{ manifests_remote_dir }}/traefik-config.yaml"
+  become: true
+  changed_when: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# --- Namespace canary ---
+- name: Creer le namespace canary
+  ansible.builtin.shell: "k3s kubectl apply -f {{ manifests_remote_dir }}/05-namespace-canary.yaml"
+  become: true
+  changed_when: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# --- Secret DB dans le namespace canary (les secrets ne sont pas cross-namespace) ---
+- name: Creer/mettre a jour le Secret DB dans le namespace canary
+  ansible.builtin.shell: |
+    k3s kubectl create secret generic pictionary-db-secret \
+      --namespace {{ canary_namespace }} \
+      --from-literal=MYSQL_ROOT_PASSWORD='{{ vault_mysql_root_password }}' \
+      --from-literal=MYSQL_DATABASE='{{ vault_mysql_database }}' \
+      --from-literal=MYSQL_USER='{{ vault_mysql_user }}' \
+      --from-literal=MYSQL_PASSWORD='{{ vault_mysql_password }}' \
+      --dry-run=client -o yaml | k3s kubectl apply -f -
+  become: true
+  no_log: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# --- Injection de l'image/version dans le manifeste canary ---
+- name: Injecter la reference d'image dans le manifeste canary
+  ansible.builtin.replace:
+    path: "{{ manifests_remote_dir }}/06-web-canary.yaml"
+    regexp: '__IMAGE_REF__'
+    replace: "{{ image_ref }}"
+  become: true
+
+- name: Injecter la version affichee dans le manifeste canary
+  ansible.builtin.replace:
+    path: "{{ manifests_remote_dir }}/06-web-canary.yaml"
+    regexp: '__APP_VERSION__'
+    replace: "{{ app_version | default('dev') }}"
+  become: true
+
+# --- Deploiement du web canary ---
+- name: Appliquer le web canary
+  ansible.builtin.shell: "k3s kubectl apply -f {{ manifests_remote_dir }}/06-web-canary.yaml"
+  become: true
+  changed_when: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# --- Routage pondere : reapplique a chaque deploiement -> poids canary remis a 0 ---
+# Une nouvelle version canary ne recoit jamais de trafic sans action explicite (/canary).
+- name: Appliquer le routage pondere (poids canary remis a 0)
+  ansible.builtin.shell: "k3s kubectl apply -f {{ manifests_remote_dir }}/07-routing-canary.yaml"
+  become: true
+  changed_when: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Attendre que le web canary soit pret (rollout)
+  ansible.builtin.shell: |
+    k3s kubectl rollout status deployment/pictionary-web -n {{ canary_namespace }} --timeout=180s
+  become: true
+  changed_when: false
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Afficher l'etat du canary
+  ansible.builtin.debug:
+    msg: |
+      === Version canary deployee ===
+      Namespace : {{ canary_namespace }}
+      Version   : {{ app_version | default('dev') }}
+      Poids     : 0 (aucun trafic tant que /canary n'est pas utilise)
