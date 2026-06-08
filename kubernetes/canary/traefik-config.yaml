@@ -1,0 +1,14 @@
+# traefik-config.yaml — Active allowCrossNamespace sur le Traefik de K3s.
+# Necessaire pour qu'un TraefikService dans le namespace "pictionary" puisse
+# referencer un service situe dans le namespace "pictionary-canary".
+# K3s gere Traefik via Helm : ce HelmChartConfig surcharge ses valeurs.
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    providers:
+      kubernetesCRD:
+        allowCrossNamespace: true

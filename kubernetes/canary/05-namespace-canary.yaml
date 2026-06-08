@@ -1,0 +1,8 @@
+# 05-namespace-canary.yaml — Namespace dedie a la version canary (prod bis).
+# Heberge uniquement le web canary : pas de DB (partagee avec le namespace pictionary).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pictionary-canary
+  labels:
+    name: pictionary-canary
