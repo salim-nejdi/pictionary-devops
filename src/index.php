@@ -1,10 +1,8 @@
 <?php
 // =============================================================================
 // SECTION 1 — CONFIGURATION
-//fdgfdgfdg
 // On lit les variables d'environnement injectées par Kubernetes (Secret K8s)
 // ou par Docker en local (.env via docker-compose).
-//sdfdg
 // getenv('VAR') retourne false si la variable n'existe pas.
 // On NE met PAS de valeur par défaut pour les secrets (pas de ?: 'motdepasse').
 // Si une variable manque, on veut le savoir immédiatement — pas un comportement
