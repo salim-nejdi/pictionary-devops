@@ -1,3 +1,9 @@
+## [1.13.1](https://github.com/salim-nejdi/pictionary-devops/compare/v1.13.0...v1.13.1) (2026-06-08)
+
+### Bug Fixes
+
+* **ci:** demonstration antoine ([a88636c](https://github.com/salim-nejdi/pictionary-devops/commit/a88636cbdcf41de312e18d1a78635ead7e4aecd4))
+
 ## [1.13.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.12.0...v1.13.0) (2026-06-07)
 
 ### Features
