@@ -110,7 +110,7 @@ jobs:
         run: |
           ansible-playbook -i "${{ steps.tf.outputs.ip }}," playbook.yml \
             --vault-password-file /tmp/vault-pass.txt \
-            --extra-vars "image_ref=ghcr.io/${{ github.repository }}:${{ needs.build.outputs.sha_tag }} app_version=${{ needs.build.outputs.sha_tag }}"
+            --extra-vars "image_ref=ghcr.io/${{ github.repository }}:${{ needs.release.outputs.version }} app_version=${{ needs.release.outputs.version }} enable_monitoring=true enable_canary=true discord_webhook_url=${{ secrets.DISCORD_WEBHOOK_ALERTES }}"
 
       - name: Nettoyer les fichiers sensibles
         if: always()
