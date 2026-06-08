@@ -86,6 +86,35 @@
   environment:
     KUBECONFIG: "{{ kubeconfig_path }}"
 
+# --- Supervision du canary : ServiceMonitor dedie au namespace canary ---
+- name: Creer le ServiceMonitor pour les metriques du canary
+  ansible.builtin.shell: |
+    cat <<'SMEOF' | k3s kubectl apply -f -
+    apiVersion: monitoring.coreos.com/v1
+    kind: ServiceMonitor
+    metadata:
+      name: pictionary-web-canary
+      namespace: monitoring
+      labels:
+        release: monitoring
+    spec:
+      namespaceSelector:
+        matchNames:
+          - pictionary-canary
+      selector:
+        matchLabels:
+          app: pictionary-web
+      endpoints:
+        - port: http
+          path: /metrics.php
+          interval: 15s
+    SMEOF
+  become: true
+  changed_when: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+
 - name: Afficher l'etat du canary
   ansible.builtin.debug:
     msg: |
