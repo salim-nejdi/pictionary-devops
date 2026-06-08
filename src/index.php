@@ -120,7 +120,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
         body {
             font-family: 'Nunito', sans-serif;
             min-height: 100vh;
-            background: linear-gradient(135deg, #f9c74f 0%, #f3722c 25%, #f94144 50%, #43aa8b 75%, #577590 100%);
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 33%, #0072ff 66%, #0250c5 100%);
             background-size: 400% 400%;
             animation: gradientShift 8s ease infinite;
             display: flex;
@@ -151,7 +151,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
             background: white;
             border-radius: 24px;
             padding: 50px 60px;
-            box-shadow: 0 12px 0 #c0392b, 0 16px 30px rgba(0,0,0,0.3);
+            box-shadow: 0 12px 0 #0250c5, 0 16px 30px rgba(0,0,0,0.3);
             border: 5px solid #fff;
             outline: 4px solid rgba(255,255,255,0.5);
             max-width: 500px;
@@ -187,16 +187,16 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
         h1 {
             font-family: 'Fredoka One', cursive;
             font-size: 2.8em;
-            color: #f3722c;
-            text-shadow: 3px 3px 0 #ffd166, 5px 5px 0 rgba(0,0,0,0.1);
+            color: #0072ff;
+            text-shadow: 3px 3px 0 #c2e9fb, 5px 5px 0 rgba(0,0,0,0.1);
             margin-bottom: 8px;
         }
 
         .subtitle { color: #aaa; font-size: 0.95em; margin-bottom: 20px; }
 
         .mot-container {
-            background: linear-gradient(135deg, #fff5f5, #fff0fa);
-            border: 3px dashed #f94144;
+            background: linear-gradient(135deg, #f0f8ff, #e6f2ff);
+            border: 3px dashed #0072ff;
             border-radius: 16px;
             padding: 28px 20px;
             margin: 15px 0;
@@ -221,8 +221,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
         #word-display {
             font-family: 'Fredoka One', cursive;
             font-size: 2.8em;
-            color: #f94144;
-            text-shadow: 2px 2px 0 #ffd166;
+            color: #0072ff;
+            text-shadow: 2px 2px 0 #c2e9fb;
             letter-spacing: 2px;
             text-transform: uppercase;
             transition: opacity 0.2s ease;
@@ -272,19 +272,19 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
             font-family: 'Fredoka One', cursive;
             font-size: 1.4em;
             cursor: pointer;
-            background: linear-gradient(145deg, #43aa8b, #277e65);
+            background: linear-gradient(145deg, #00f2fe, #0072ff);
             color: white;
             border: none;
             border-radius: 50px;
             padding: 14px 40px;
-            box-shadow: 0 6px 0 #1a5e45, 0 8px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 6px 0 #0250c5, 0 8px 15px rgba(0,0,0,0.2);
             transition: transform 0.1s, box-shadow 0.1s;
             letter-spacing: 1px;
         }
-        button:hover  { background: linear-gradient(145deg, #4ebfa0, #2d9170); }
+        button:hover  { background: linear-gradient(145deg, #4facfe, #0072ff); }
         button:active {
             transform: translateY(4px);
-            box-shadow: 0 2px 0 #1a5e45;
+            box-shadow: 0 2px 0 #0250c5;
         }
         button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
@@ -314,7 +314,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
             box-shadow: 0 2px 8px rgba(0,0,0,0.25);
             z-index: 1000;
         }
-        .version-prod { background: rgba(67, 170, 139, 0.9); }
+        .version-prod { background: rgba(0, 114, 255, 0.9); }
         .version-preprod {
             background: #f3722c;
             border: 2px solid white;
@@ -326,7 +326,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_word') {
 <body>
 
     <script>
-        const colors = ['#f94144','#f3722c','#f9c74f','#43aa8b','#577590','#a8dadc'];
+        const colors = ['#4facfe','#00f2fe','#0072ff','#f9c74f','#a8dadc','#ffffff'];
 
         for (let i = 0; i < 18; i++) {
             const el    = document.createElement('div');
