@@ -1,3 +1,114 @@
+## [1.13.1](https://github.com/salim-nejdi/pictionary-devops/compare/v1.13.0...v1.13.1) (2026-06-08)
+
+### Bug Fixes
+
+* **ci:** demonstration antoine ([a88636c](https://github.com/salim-nejdi/pictionary-devops/commit/a88636cbdcf41de312e18d1a78635ead7e4aecd4))
+
+## [1.13.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.12.0...v1.13.0) (2026-06-07)
+
+### Features
+
+* **ci:** PR notification ([8fa1e74](https://github.com/salim-nejdi/pictionary-devops/commit/8fa1e747535251fefde72e0c444d3d81a78689bd))
+
+### Bug Fixes
+
+* **ci:** add bot ([d30f543](https://github.com/salim-nejdi/pictionary-devops/commit/d30f543825f46e47d16f400131452989782f869b))
+
+## [1.12.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.11.4...v1.12.0) (2026-06-07)
+
+### Features
+
+* **bot:** add deployment ([6cc13b1](https://github.com/salim-nejdi/pictionary-devops/commit/6cc13b16b9dce985ff40bdecc7a1ecfb4957d8a7))
+
+### Bug Fixes
+
+* **ci:** add feature ([d534c42](https://github.com/salim-nejdi/pictionary-devops/commit/d534c42b5772b2c62290032cb20acad1aecc9232))
+
+## [1.11.4](https://github.com/salim-nejdi/pictionary-devops/compare/v1.11.3...v1.11.4) (2026-06-07)
+
+### Bug Fixes
+
+* **monitoring:** alerting ([1861fa7](https://github.com/salim-nejdi/pictionary-devops/commit/1861fa7b0139914c23c135882ee9325f1dd08142))
+
+## [1.11.3](https://github.com/salim-nejdi/pictionary-devops/compare/v1.11.2...v1.11.3) (2026-06-07)
+
+### Bug Fixes
+
+* **monitoring:** add alerting 6 ([c38fe11](https://github.com/salim-nejdi/pictionary-devops/commit/c38fe11975e543377ca413f9e84c8f0400b54ab8))
+* **monitoring:** add alerting 7 ([8b70658](https://github.com/salim-nejdi/pictionary-devops/commit/8b706588fb7a6a6d3e555926e9af42f41ba7e709))
+
+## [1.11.2](https://github.com/salim-nejdi/pictionary-devops/compare/v1.11.1...v1.11.2) (2026-06-07)
+
+### Bug Fixes
+
+* **monitoring:** add alerting ([5c1b454](https://github.com/salim-nejdi/pictionary-devops/commit/5c1b454e14185d776d00b4c66484aae992b45232))
+* **monitoring:** add alerting 4 ([87c4d40](https://github.com/salim-nejdi/pictionary-devops/commit/87c4d4088212fb97961d310ccf21cdfeb63b211b))
+* **monitoring:** add alerting 5 ([9725e23](https://github.com/salim-nejdi/pictionary-devops/commit/9725e234b0b8c0700955058934a324ec0ecaaf16))
+* **monitoring:** add alerting ter ([90fad20](https://github.com/salim-nejdi/pictionary-devops/commit/90fad206d56dac2516d2152b122a828bf0298bfc))
+
+## [1.11.1](https://github.com/salim-nejdi/pictionary-devops/compare/v1.11.0...v1.11.1) (2026-06-07)
+
+### Bug Fixes
+
+* **monitoring:** add app label to web service for ServiceMonitor ([c5c0e63](https://github.com/salim-nejdi/pictionary-devops/commit/c5c0e63844c8902d35cfc8152a330de2490c9428))
+
+## [1.11.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.10.0...v1.11.0) (2026-06-07)
+
+### Features
+
+* **monitoring:** clean dashboard with app + cluster metrics ([f3b1ea3](https://github.com/salim-nejdi/pictionary-devops/commit/f3b1ea35e375673ca79dd062c9c9df736457c9d4))
+
+## [1.10.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.9.0...v1.10.0) (2026-06-07)
+
+### Features
+
+* **monitoring:** add app metrics ter ([8a2967b](https://github.com/salim-nejdi/pictionary-devops/commit/8a2967bf459be839a1761e46bdc9314154df93cc))
+
+## [1.9.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.8.0...v1.9.0) (2026-06-07)
+
+### Features
+
+* **monitoring:** add app metrics bis ([c5b118d](https://github.com/salim-nejdi/pictionary-devops/commit/c5b118d6621e2c63c43950e30b883caa616138b8))
+
+## [1.8.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.7.2...v1.8.0) (2026-06-07)
+
+### Features
+
+* **monitoring:** add app metrics ([9021a1f](https://github.com/salim-nejdi/pictionary-devops/commit/9021a1fb12890ab7b025b20baac50d85629e1cef))
+
+## [1.7.2](https://github.com/salim-nejdi/pictionary-devops/compare/v1.7.1...v1.7.2) (2026-06-07)
+
+### Bug Fixes
+
+* **monitoring:** monitor only the prod ([a4d0529](https://github.com/salim-nejdi/pictionary-devops/commit/a4d0529ae8328ab9c091343208ed4c9cb280cab3))
+
+## [1.7.1](https://github.com/salim-nejdi/pictionary-devops/compare/v1.7.0...v1.7.1) (2026-06-07)
+
+### Bug Fixes
+
+* **monitoring:** add loki ([47adcb3](https://github.com/salim-nejdi/pictionary-devops/commit/47adcb363457d505b9255037e5d3b7857435d5d9))
+
+## [1.7.0](https://github.com/salim-nejdi/pictionary-devops/compare/v1.6.4...v1.7.0) (2026-06-07)
+
+### Features
+
+* **sup:** add supervision stack ([dddea7a](https://github.com/salim-nejdi/pictionary-devops/commit/dddea7a406a45a490b5f197eacc952ac336fd997))
+
+### Bug Fixes
+
+* **ci:** add supervision V2 ([3b0b059](https://github.com/salim-nejdi/pictionary-devops/commit/3b0b05926537a82df73e9dc9d6711910659e1631))
+* **monitoring:** add dashboards ([e54b590](https://github.com/salim-nejdi/pictionary-devops/commit/e54b590948547bc71fc6ae06ef5bcfb8b61f7fda))
+* **monitoring:** add Kubconfig environment ([f810740](https://github.com/salim-nejdi/pictionary-devops/commit/f810740964c371fbd13789dd585171196fb1cc9b))
+* **monitoring:** add Kubconfig environment2 ([cbad94c](https://github.com/salim-nejdi/pictionary-devops/commit/cbad94c550b0824112ef83522d3c52fc798ee272))
+* **monitoring:** add Kubconfig environment3 ([f6c3ad9](https://github.com/salim-nejdi/pictionary-devops/commit/f6c3ad9afec8a713d7fa991d3d68dd36b8edab82))
+* **monitoring:** add Kubconfig environment4 ([daafacf](https://github.com/salim-nejdi/pictionary-devops/commit/daafacf54bc37dbd782aded8c75e75249ce384ed))
+
+## [1.6.4](https://github.com/salim-nejdi/pictionary-devops/compare/v1.6.3...v1.6.4) (2026-06-06)
+
+### Bug Fixes
+
+* **ci:** new pipeline ([3f43afb](https://github.com/salim-nejdi/pictionary-devops/commit/3f43afbe5230760cf388738727fd8527d7b89a15))
+
 ## [1.6.3](https://github.com/salim-nejdi/pictionary-devops/compare/v1.6.2...v1.6.3) (2026-06-06)
 
 ### Bug Fixes

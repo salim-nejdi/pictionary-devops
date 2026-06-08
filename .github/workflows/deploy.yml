@@ -1,37 +1,55 @@
-name: Rollback Production
-# Declenche manuellement (par le bot Discord ou l'interface GitHub) avec une version cible.
+name: Deploy On Demand
+# Deploiement a la demande (declenche par le bot Discord /deploy ou l'interface GitHub).
+# Deploie une image DEJA construite (pas de rebuild, pas de tests) sur l'environnement choisi.
+#   - preprod : tag de type preprod-<sha>, sans validation
+#   - prod    : tag SemVer, AVEC validation humaine (environnement protege)
 on:
   workflow_dispatch:
     inputs:
+      environment:
+        description: "Environnement cible"
+        required: true
+        type: choice
+        options:
+          - preprod
+          - prod
       version:
-        description: "Version a redeployer en prod (ex: 1.1.0)"
+        description: "Version/tag d'image a deployer (preprod-<sha> ou X.Y.Z)"
         required: true
         type: string
+
 permissions:
   contents: read
-  packages: write
+  packages: read
+
 jobs:
-  rollback-prod:
+  deploy:
     runs-on: ubuntu-latest
-    environment: production    # <-- pause + validation humaine, comme deploy-prod
+    # Validation humaine en prod (environnement "production" avec required reviewers),
+    # aucune validation en preprod.
+    environment: ${{ github.event.inputs.environment == 'prod' && 'production' || 'preprod' }}
     steps:
       - uses: actions/checkout@v4
-      - name: Verifier que l'image de cette version existe sur GHCR
+
+      - name: Verifier que l'image existe sur GHCR
         run: |
-          echo "Rollback demande vers la version ${{ github.event.inputs.version }}"
-          # L'image ghcr.io/<repo>:<version> doit deja exister (construite lors de sa release initiale)
+          echo "Deploiement a la demande : ${{ github.event.inputs.version }} -> ${{ github.event.inputs.environment }}"
+          # L'image ghcr.io/<repo>:<version> doit deja exister (build CI/CD anterieur).
+
       - name: Installer Terraform et Ansible
         run: |
           sudo apt-get update && sudo apt-get install -y ansible netcat-openbsd
           wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
           echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
           sudo apt-get update && sudo apt-get install -y terraform
-      - name: Terraform apply (VM prod)
+
+      - name: Terraform apply (VM de l'environnement choisi)
         id: tf
         working-directory: ./terraform
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-          TF_WORKSPACE: pictionary-prod
+          # Workspace selon l'input : pictionary-preprod ou pictionary-prod
+          TF_WORKSPACE: pictionary-${{ github.event.inputs.environment }}
           OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
           OS_USERNAME: ${{ secrets.OS_USERNAME }}
           OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
@@ -44,12 +62,14 @@ jobs:
           terraform init
           terraform apply -auto-approve
           echo "ip=$(terraform output -raw instance_ip)" >> "$GITHUB_OUTPUT"
+
       - name: Preparer cle SSH et mot de passe Vault
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > /tmp/vault-pass.txt
+
       - name: Attendre que le SSH soit pret
         run: |
           for i in $(seq 1 30); do
@@ -57,7 +77,8 @@ jobs:
             echo "Attente SSH $i/30..."; sleep 10
           done
           echo "SSH injoignable"; exit 1
-      - name: Redeployer la version choisie (rollback)
+
+      - name: Deploiement Ansible (image choisie)
         working-directory: ./ansible
         env:
           OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
@@ -65,46 +86,52 @@ jobs:
           OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
           OS_REGION_NAME: ${{ secrets.OS_REGION_NAME }}
         run: |
+          # La supervision n'est activee qu'en prod (comme dans le pipeline principal).
+          MONITORING=false
+          if [ "${{ github.event.inputs.environment }}" = "prod" ]; then MONITORING=true; fi
           ansible-playbook -i "${{ steps.tf.outputs.ip }}," playbook.yml \
             --vault-password-file /tmp/vault-pass.txt \
-            --extra-vars "image_ref=ghcr.io/${{ github.repository }}:${{ github.event.inputs.version }} app_version=${{ github.event.inputs.version }}"
+            --extra-vars "image_ref=ghcr.io/${{ github.repository }}:${{ github.event.inputs.version }} app_version=${{ github.event.inputs.version }} enable_monitoring=$MONITORING discord_webhook_url=${{ secrets.DISCORD_WEBHOOK_ALERTES }}"
+
       - name: Nettoyer les fichiers sensibles
         if: always()
         run: rm -f ~/.ssh/id_rsa /tmp/vault-pass.txt
-      - name: Notifier #rollback (rollback effectue)
+
+      - name: Notifier #deploy (deploiement a la demande effectue)
         if: success()
         run: |
           curl -H "Content-Type: application/json" \
             -d '{
               "embeds": [{
-                "title": "Rollback PRODUCTION effectue",
-                "description": "Production en etat degrade : rollback manuel applique. La prod a diverge de la branche main (HEAD). Un correctif versionne doit etre merge sur main pour realigner l etat declare et restaurer le flux de deploiement nominal.",
-                "color": 16776960,
+                "title": "Deploiement a la demande effectue",
+                "description": "Une version a ete deployee manuellement via la commande /deploy.",
+                "color": 3066993,
                 "fields": [
-                  {"name": "Version restauree", "value": "`${{ github.event.inputs.version }}`", "inline": true},
-                  {"name": "Environnement", "value": "production", "inline": true},
+                  {"name": "Version", "value": "`${{ github.event.inputs.version }}`", "inline": true},
+                  {"name": "Environnement", "value": "`${{ github.event.inputs.environment }}`", "inline": true},
                   {"name": "Acces", "value": "http://${{ steps.tf.outputs.ip }}"}
                 ],
-                "footer": {"text": "Pictionary - Rollback"}
+                "footer": {"text": "Pictionary - Deploy"}
               }]
             }' \
-            "${{ secrets.DISCORD_WEBHOOK_ROLLBACK }}"
+            "${{ secrets.DISCORD_WEBHOOK_DEPLOY }}"
 
 
-      - name: Notifier #rollback (echec rollback)
+      - name: Notifier #deploy (echec deploiement a la demande)
         if: failure()
         run: |
           curl -H "Content-Type: application/json" \
             -d '{
               "embeds": [{
-                "title": "Echec du rollback PRODUCTION",
-                "description": "Le rollback a echoue. Verifiez l etat de la production.",
+                "title": "Echec du deploiement a la demande",
+                "description": "Le deploiement manuel a echoue.",
                 "color": 15158332,
                 "fields": [
-                  {"name": "Version visee", "value": "`${{ github.event.inputs.version }}`", "inline": true},
+                  {"name": "Version", "value": "`${{ github.event.inputs.version }}`", "inline": true},
+                  {"name": "Environnement", "value": "`${{ github.event.inputs.environment }}`", "inline": true},
                   {"name": "Details", "value": "[Voir le run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"}
                 ],
-                "footer": {"text": "Pictionary - Rollback"}
+                "footer": {"text": "Pictionary - Deploy"}
               }]
             }' \
-            "${{ secrets.DISCORD_WEBHOOK_ROLLBACK }}"
+            "${{ secrets.DISCORD_WEBHOOK_DEPLOY }}"

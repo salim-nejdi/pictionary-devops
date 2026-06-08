@@ -2,6 +2,7 @@
 // =============================================================================
 // SECTION 1 — CONFIGURATION
 //
+
 // On lit les variables d'environnement injectées par Kubernetes (Secret K8s)
 // ou par Docker en local (.env via docker-compose).
 //
