@@ -2,7 +2,7 @@
 
 > Déploiement continu d'une application multi-composants dans un environnement de type production, en appliquant les pratiques DevOps : conteneurisation, Infrastructure-as-Code, intégration et déploiement continus, zéro-downtime, observabilité et logging centralisé.
 
-**Dépôt :** `salim-nejdi/pictionary-devops` · **Auteur :** Antoinse, Rudy, Salim
+**Dépôt :** `salim-nejdi/pictionary-devops` · **Auteur :** Antoine, Rudy, Salim
 
 > Le périmètre évalué est l'**industrialisation DevOps**. L'application Pictionary (Application multi-composants : front PHP/Apache + API + base MariaDB) sert de support de démonstration.
 
